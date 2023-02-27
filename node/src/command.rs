@@ -1,14 +1,13 @@
 use crate::{
-	benchmarking::{inherent_benchmark_data, RemarkBuilder, TransferKeepAliveBuilder},
+	benchmarking::{inherent_benchmark_data, RemarkBuilder},
 	chain_spec,
 	cli::{Cli, Subcommand},
 	service,
 };
 use frame_benchmarking_cli::{BenchmarkCmd, ExtrinsicFactory, SUBSTRATE_REFERENCE_HARDWARE};
-use node_template_runtime::{Block, EXISTENTIAL_DEPOSIT};
+use node_template_runtime::{Block};
 use sc_cli::{ChainSpec, RuntimeVersion, SubstrateCli};
 use sc_service::PartialComponents;
-use sp_keyring::Sr25519Keyring;
 
 impl SubstrateCli for Cli {
 	fn impl_name() -> String {
@@ -158,11 +157,6 @@ pub fn run() -> sc_cli::Result<()> {
 						// Register the *Remark* and *TKA* builders.
 						let ext_factory = ExtrinsicFactory(vec![
 							Box::new(RemarkBuilder::new(client.clone())),
-							Box::new(TransferKeepAliveBuilder::new(
-								client.clone(),
-								Sr25519Keyring::Alice.to_account_id(),
-								EXISTENTIAL_DEPOSIT,
-							)),
 						]);
 
 						cmd.run(client, inherent_benchmark_data()?, Vec::new(), &ext_factory)

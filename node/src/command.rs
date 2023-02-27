@@ -5,7 +5,7 @@ use crate::{
 	service,
 };
 use frame_benchmarking_cli::{BenchmarkCmd, ExtrinsicFactory, SUBSTRATE_REFERENCE_HARDWARE};
-use node_template_runtime::{Block};
+use node_template_runtime::Block;
 use sc_cli::{ChainSpec, RuntimeVersion, SubstrateCli};
 use sc_service::PartialComponents;
 
@@ -155,9 +155,8 @@ pub fn run() -> sc_cli::Result<()> {
 					BenchmarkCmd::Extrinsic(cmd) => {
 						let PartialComponents { client, .. } = service::new_partial(&config)?;
 						// Register the *Remark* and *TKA* builders.
-						let ext_factory = ExtrinsicFactory(vec![
-							Box::new(RemarkBuilder::new(client.clone())),
-						]);
+						let ext_factory =
+							ExtrinsicFactory(vec![Box::new(RemarkBuilder::new(client.clone()))]);
 
 						cmd.run(client, inherent_benchmark_data()?, Vec::new(), &ext_factory)
 					},

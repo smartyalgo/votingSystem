@@ -5,7 +5,7 @@
 use crate::service::FullClient;
 
 use node_template_runtime as runtime;
-use runtime::{SystemCall};
+use runtime::SystemCall;
 use sc_cli::Result;
 use sc_client_api::BlockBackend;
 use sp_core::{Encode, Pair};
@@ -51,7 +51,6 @@ impl frame_benchmarking_cli::ExtrinsicBuilder for RemarkBuilder {
 		Ok(extrinsic)
 	}
 }
-
 
 /// Create a transaction using the given `call`.
 ///
@@ -99,10 +98,10 @@ pub fn create_benchmark_extrinsic(
 	let signature = raw_payload.using_encoded(|e| sender.sign(e));
 
 	runtime::UncheckedExtrinsic::new_signed(
-		call.clone(),
+		call,
 		sp_runtime::AccountId32::from(sender.public()).into(),
-		runtime::Signature::Sr25519(signature.clone()),
-		extra.clone(),
+		runtime::Signature::Sr25519(signature),
+		extra,
 	)
 }
 

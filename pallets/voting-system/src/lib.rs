@@ -14,33 +14,19 @@ mod benchmarking;
 pub mod pallet {
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
-	use frame_support::inherent::Vec;
 
 	#[pallet::pallet]
 	#[pallet::generate_store(pub(super) trait Store)]
 	pub struct Pallet<T>(_);
 
-	// #[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, TypeInfo)]
-	// pub enum ElectionPhase {
-	// 	None,
-	// 	Initialization,
-	// 	Registration,
-	// 	BiasedSigner,
-	// 	Voting,
-	// 	Counting,
-	// }
-
-	#[derive(Clone, Encode, Decode, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen, Default)]
-	#[scale_info(skip_type_params(T))]
-	pub struct State<T: Config> {
-		central_authority: T::AccountId,
-		// phase: ElectionPhase
-	}
-
-	#[derive(Clone, Encode, Decode, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
-	#[scale_info(skip_type_params(T))]
-	pub struct Voter<T: Config> {
-		account_id: T::AccountId
+	#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+	pub enum ElectionPhase {
+		None,
+		Initialization,
+		Registration,
+		BiasedSigner,
+		Voting,
+		Counting,
 	}
 
 	#[pallet::config]
@@ -49,11 +35,18 @@ pub mod pallet {
 	}
 
 	#[pallet::storage]
-	#[pallet::getter(fn state)]
-	pub type Election<T> = StorageValue<_, State<T>, ValueQuery>;
+	#[pallet::getter(fn ca)]
+	pub type CentralAuthority<T: Config> = StorageValue<_, T::AccountId, OptionQuery>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn phase)]
+	pub type Phase<T: Config> = StorageValue<_, ElectionPhase, OptionQuery>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn voters)]
+	pub type Voters<T: Config> = StorageMap<_, Twox64Concat, T::AccountId, u32, OptionQuery>;
 
 	#[pallet::event]
-	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// Entered Initialisation Phase
 		ElectionInitialisationStarted { when: T::BlockNumber },
@@ -69,7 +62,7 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		#[pallet::call_index(0)]
 		#[pallet::weight(10_000 + T::DbWeight::get().writes(1).ref_time())]
-		pub fn change_phase(origin: OriginFor<T>) -> DispatchResult {
+		pub fn change_phase(_origin: OriginFor<T>) -> DispatchResult {
 			// make sure that it is signed by the CA
 
 			// change the phase

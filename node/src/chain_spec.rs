@@ -1,13 +1,12 @@
 use node_template_runtime::{
-	AccountId, AuraConfig, GenesisConfig, GrandpaConfig, Signature, SudoConfig, SystemConfig,
-	WASM_BINARY,
+	pallet_voting_system::GenesisConfig as VotingSystemConfig, AccountId, AuraConfig,
+	GenesisConfig, GrandpaConfig, Signature, SudoConfig, SystemConfig, WASM_BINARY,
 };
 use sc_service::ChainType;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::{sr25519, Pair, Public};
 use sp_finality_grandpa::AuthorityId as GrandpaId;
 use sp_runtime::traits::{IdentifyAccount, Verify};
-use node_template_runtime::pallet_voting_system::{GenesisConfig as VotingSystemConfig};
 
 // The URL for the telemetry server.
 // const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polkadot.io/submit/";
@@ -126,9 +125,6 @@ fn testnet_genesis(
 			// Assign network admin rights.
 			key: Some(root_key.clone()),
 		},
-		voting_system: VotingSystemConfig {
-			central_authority: Some(root_key),
-			voters: Vec::new(),
-		},
+		voting_system: VotingSystemConfig { central_authority: Some(root_key), voters: Vec::new() },
 	}
 }

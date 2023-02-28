@@ -121,7 +121,10 @@ pub mod pallet {
 			// ensure!(sender == ca, <Error<T>>::SenderNotCA);
 
 			<Phase<T>>::put(phase.clone());
-			Self::deposit_event(Event::PhaseChanged { when: frame_system::Pallet::<T>::block_number(), phase });
+			Self::deposit_event(Event::PhaseChanged {
+				when: frame_system::Pallet::<T>::block_number(),
+				phase,
+			});
 
 			Ok(())
 		}

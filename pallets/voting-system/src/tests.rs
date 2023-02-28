@@ -1,6 +1,5 @@
-use crate::{mock::*, Error, Event, ElectionPhase};
-use frame_support::{assert_noop, assert_ok};
-use crate::ElectionPhase::Initialization;
+use crate::{mock::*, ElectionPhase::Initialization, Event};
+use frame_support::{assert_ok};
 
 #[test]
 fn change_phase_works() {

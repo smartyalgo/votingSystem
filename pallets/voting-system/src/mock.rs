@@ -55,6 +55,7 @@ impl pallet_voting_system::Config for Test {
 
 // Build genesis storage according to the mock runtime.
 pub fn new_test_ext(root_key: u64) -> sp_io::TestExternalities {
-	pallet_voting_system::GenesisConfig::<Test> { central_authority: Some(root_key), voters: Vec::new() };
-	frame_system::GenesisConfig::default().build_storage::<Test>().unwrap().into()
+	let mut t = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
+	pallet_voting_system::GenesisConfig::<Test> { central_authority: Some(root_key), voters: Vec::new() }.assimilate_storage(&mut t).unwrap();
+	t.into()
 }

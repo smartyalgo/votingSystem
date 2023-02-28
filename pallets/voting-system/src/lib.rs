@@ -21,7 +21,7 @@ pub mod pallet {
 
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
-		pub central_authority: T::AccountId,
+		pub central_authority: Option<T::AccountId>,
 		pub voters: Vec<T::AccountId>,
 	}
 
@@ -35,7 +35,9 @@ pub mod pallet {
 	#[pallet::genesis_build]
 	impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
 		fn build(&self) {
-			CentralAuthority::<T>::put(ca);
+			if let Some(ref ca) = self.central_authority {
+				CentralAuthority::<T>::put(ca);
+			}
 			for voter in &self.voters {
 				Voters::<T>::insert(voter, 0);
 			}

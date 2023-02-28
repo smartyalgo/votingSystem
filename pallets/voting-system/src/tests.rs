@@ -3,14 +3,18 @@ use frame_support::{assert_ok};
 
 #[test]
 fn change_phase_works() {
-	new_test_ext(1).execute_with(|| {
-		// Go past genesis block so events get deposited
+	let root_key = 1;
+	new_test_ext(root_key).execute_with(|| {
+		// with
+		let ca = root_key;
+		let phase = Initialization;
+
+		// when
 		System::set_block_number(1);
-		// Submit an extrinsic to change the phase
-		assert_ok!(VotingSystem::change_phase(RuntimeOrigin::signed(1), Initialization));
-		// Read pallet storage and assert an expected result.
-		assert_eq!(VotingSystem::phase(), Some(Initialization));
-		// Assert that the correct event was deposited
-		System::assert_last_event(Event::PhaseChanged { phase: Initialization, when: 1 }.into());
+		assert_ok!(VotingSystem::change_phase(RuntimeOrigin::signed(ca), phase.clone()));
+
+		// then
+		assert_eq!(VotingSystem::phase(), Some(phase.clone()));
+		System::assert_last_event(Event::PhaseChanged { phase, when: 1 }.into());
 	});
 }

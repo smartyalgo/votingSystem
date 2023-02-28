@@ -118,9 +118,10 @@ pub mod pallet {
 				return Err(Error::<T>::InternalError.into())
 			}
 
-			// ensure!(sender == ca, <Error<T>>::SenderNotCA);
-
+			// Update the phase
 			<Phase<T>>::put(phase.clone());
+
+			// Emit event
 			Self::deposit_event(Event::PhaseChanged {
 				when: frame_system::Pallet::<T>::block_number(),
 				phase,

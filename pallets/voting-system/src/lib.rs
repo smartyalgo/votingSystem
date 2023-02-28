@@ -19,6 +19,26 @@ pub mod pallet {
 	#[pallet::generate_store(pub(super) trait Store)]
 	pub struct Pallet<T>(_);
 
+	#[pallet::genesis_config]
+	pub struct GenesisConfig<T: Config> {
+		pub central_authority: Option<T::AccountId>,
+		pub voters: Vec<T::AccountId>,
+	}
+
+	#[cfg(feature = "std")]
+	impl<T: Config> Default for GenesisConfig<T> {
+		fn default() -> Self {
+			Self { central_authority: None, voters: Vec::new() }
+		}
+	}
+
+	#[pallet::genesis_build]
+	impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
+		fn build(&self) {
+			// TODO: initialisation
+		}
+	}
+
 	#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 	pub enum ElectionPhase {
 		None,
@@ -63,10 +83,9 @@ pub mod pallet {
 		#[pallet::call_index(0)]
 		#[pallet::weight(10_000 + T::DbWeight::get().writes(1).ref_time())]
 		pub fn change_phase(_origin: OriginFor<T>) -> DispatchResult {
+			// TODO: implement this
 			// make sure that it is signed by the CA
-
 			// change the phase
-
 			// Emit an event.
 			Ok(())
 		}

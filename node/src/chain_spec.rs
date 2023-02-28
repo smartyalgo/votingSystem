@@ -126,7 +126,7 @@ fn testnet_genesis(
 			// Assign network admin rights.
 			key: Some(root_key.clone()),
 		},
-		template_module: VotingSystemConfig {
+		voting_system: VotingSystemConfig {
 			central_authority: Some(root_key),
 			voters: Vec::new(),
 		},

@@ -21,7 +21,7 @@ pub mod pallet {
 
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
-		pub central_authority: Option<T::AccountId>,
+		pub central_authority: T::AccountId,
 		pub voters: Vec<T::AccountId>,
 	}
 
@@ -35,7 +35,10 @@ pub mod pallet {
 	#[pallet::genesis_build]
 	impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
 		fn build(&self) {
-			// TODO: initialisation
+			CentralAuthority::<T>::put(ca);
+			for voter in &self.voters {
+				Voters::<T>::insert(voter, 0);
+			}
 		}
 	}
 
@@ -67,27 +70,47 @@ pub mod pallet {
 	pub type Voters<T: Config> = StorageMap<_, Twox64Concat, T::AccountId, u32, OptionQuery>;
 
 	#[pallet::event]
+	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
-		/// Entered Initialisation Phase
-		ElectionInitialisationStarted { when: T::BlockNumber },
+		/// Phase changed
+		PhaseChanged { when: T::BlockNumber, phase: ElectionPhase },
 	}
 
 	#[pallet::error]
 	pub enum Error<T> {
-		/// Error names should be descriptive.
-		NoneValue,
+		/// Internal error
+		InternalError,
+		/// Error when the sender is not CA
+		SenderNotCA,
 	}
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		#[pallet::call_index(0)]
 		#[pallet::weight(10_000 + T::DbWeight::get().writes(1).ref_time())]
-		pub fn change_phase(_origin: OriginFor<T>) -> DispatchResult {
-			// TODO: implement this
+		#[pallet::call_index(0)]
+		pub fn change_phase(origin: OriginFor<T>, phase: ElectionPhase) -> DispatchResult {
 			// make sure that it is signed by the CA
-			// change the phase
-			// Emit an event.
+			let sender = ensure_signed(origin)?;
+			let ca = Self::ca();
+			if let Some(ca) = ca {
+				ensure!(sender == ca, <Error<T>>::SenderNotCA);
+			} else {
+				// if CA is not set, return error
+				return Err(Error::<T>::InternalError.into())
+			}
+
+			// ensure!(sender == ca, <Error<T>>::SenderNotCA);
+
+			<Phase<T>>::put(phase.clone());
+			Self::deposit_event(Event::PhaseChanged { when: frame_system::Pallet::<T>::block_number(), phase });
+
 			Ok(())
+		}
+	}
+
+	impl<T: Config> Pallet<T> {
+		pub fn get_phase() -> Option<ElectionPhase> {
+			<Phase<T>>::get()
 		}
 	}
 }

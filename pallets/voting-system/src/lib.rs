@@ -1,8 +1,4 @@
 #![cfg_attr(not(feature = "std"), no_std)]
-
-/// Edit this file to define custom logic or remove it if it is not needed.
-/// Learn more about FRAME and the core library of Substrate FRAME pallets:
-/// <https://docs.substrate.io/reference/frame-pallets/>
 pub use pallet::*;
 
 #[cfg(test)]
@@ -18,87 +14,236 @@ mod benchmarking;
 pub mod pallet {
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
+	use frame_support::inherent::Vec;
 
 	#[pallet::pallet]
 	#[pallet::generate_store(pub(super) trait Store)]
 	pub struct Pallet<T>(_);
 
-	/// Configure the pallet by specifying the parameters and types on which it depends.
+	#[pallet::genesis_config]
+	pub struct GenesisConfig<T: Config> {
+		pub central_authority: Option<T::AccountId>,
+		pub candidates: Vec<T::AccountId>,
+	}
+
+	#[cfg(feature = "std")]
+	impl<T: Config> Default for GenesisConfig<T> {
+		fn default() -> Self {
+			Self { central_authority: None, candidates: Vec::new() }
+		}
+	}
+
+	#[pallet::genesis_build]
+	impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
+		fn build(&self) {
+			Phase::<T>::put(ElectionPhase::Initialization);
+
+			if let Some(ref ca) = self.central_authority {
+				CentralAuthority::<T>::put(ca);
+			}
+			for candidate in &self.candidates {
+				Candidates::<T>::insert(candidate, Candidate{ name: vec![] } );
+			}
+		}
+	}
+
+	#[cfg(feature = "std")]
+	impl<T: Config> GenesisConfig<T> {
+		/// Direct implementation of `GenesisBuild::build_storage`.
+		///
+		/// Kept in order not to break dependency.
+		pub fn build_storage(&self) -> Result<sp_runtime::Storage, String> {
+			<Self as GenesisBuild<T>>::build_storage(self)
+		}
+
+		/// Direct implementation of `GenesisBuild::assimilate_storage`.
+		///
+		/// Kept in order not to break dependency.
+		pub fn assimilate_storage(&self, storage: &mut sp_runtime::Storage) -> Result<(), String> {
+			<Self as GenesisBuild<T>>::assimilate_storage(self, storage)
+		}
+	}
+
+	#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+	pub enum ElectionPhase {
+		None,
+		Initialization,
+		Registration,
+		BiasedSigner,
+		Voting,
+		Counting,
+	}
+
+	#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, TypeInfo)]
+	pub struct Voter {
+		pub blinded_pubkey: Vec<u8>,
+		pub is_eligible: bool,
+		pub signed_blinded_pubkey: Vec<u8>,
+	}
+
+	/// Todo: determine maximum length of struct storage
+	impl MaxEncodedLen for Voter {
+		fn max_encoded_len() -> usize {
+			usize::MAX - 1
+		}
+	}
+
+	#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, TypeInfo)]
+	pub struct Candidate {
+		pub name: Vec<u8>,
+	}
+
+	/// Todo: determine maximum length of struct storage
+	impl MaxEncodedLen for Candidate {
+		fn max_encoded_len() -> usize {
+			usize::MAX - 1
+		}
+	}
+
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
-		/// Because this pallet emits events, it depends on the runtime's definition of an event.
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 	}
 
-	// The pallet's runtime storage items.
-	// https://docs.substrate.io/main-docs/build/runtime-storage/
 	#[pallet::storage]
-	#[pallet::getter(fn something)]
-	// Learn more about declaring storage items:
-	// https://docs.substrate.io/main-docs/build/runtime-storage/#declaring-storage-items
-	pub type Something<T> = StorageValue<_, u32>;
+	#[pallet::getter(fn ca)]
+	pub type CentralAuthority<T: Config> = StorageValue<_, T::AccountId, OptionQuery>;
 
-	// Pallets use events to inform users when important changes are made.
-	// https://docs.substrate.io/main-docs/build/events-errors/
+	#[pallet::storage]
+	#[pallet::getter(fn phase)]
+	pub type Phase<T: Config> = StorageValue<_, ElectionPhase, OptionQuery>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn candidates)]
+	pub type Candidates<T: Config> = StorageMap<_, Twox64Concat, T::AccountId, Candidate, OptionQuery>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn voters)]
+	pub type Voters<T: Config> = StorageMap<_, Twox64Concat, T::AccountId, Voter, OptionQuery>;
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
-		/// Event documentation should end with an array that provides descriptive names for event
-		/// parameters. [something, who]
-		SomethingStored { something: u32, who: T::AccountId },
+		/// Phase changed
+		PhaseChanged { when: T::BlockNumber, phase: ElectionPhase },
 	}
 
-	// Errors inform users that something went wrong.
 	#[pallet::error]
 	pub enum Error<T> {
-		/// Error names should be descriptive.
-		NoneValue,
-		/// Errors should have helpful documentation associated with them.
-		StorageOverflow,
+		/// Internal error
+		InternalError,
+		/// Error when the sender is not CA
+		SenderNotCA,
+		/// Voter already exists
+		VoterAlreadyExists,
+		/// Invalid phase change
+		InvalidPhaseChange,
+		/// Invalid phase
+		InvalidPhase,
+		/// Bad Sender
+		BadSender,
 	}
 
-	// Dispatchable functions allows users to interact with the pallet and invoke state changes.
-	// These functions materialize as "extrinsics", which are often compared to transactions.
-	// Dispatchable functions must be annotated with a weight and must return a DispatchResult.
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		/// An example dispatchable that takes a singles value as a parameter, writes the value to
-		/// storage and emits an event. This function must be dispatched by a signed extrinsic.
-		#[pallet::call_index(0)]
+		// fn verify_change_to_registration(origin: <T as Config>::AccountId) -> Option<Error<T>> {
+
+		// }
+
 		#[pallet::weight(10_000 + T::DbWeight::get().writes(1).ref_time())]
-		pub fn do_something(origin: OriginFor<T>, something: u32) -> DispatchResult {
-			// Check that the extrinsic was signed and get the signer.
-			// This function will return an error if the extrinsic is not signed.
-			// https://docs.substrate.io/main-docs/build/origins/
-			let who = ensure_signed(origin)?;
+		#[pallet::call_index(0)]
+		pub fn change_phase(origin: OriginFor<T>, phase: ElectionPhase) -> DispatchResult {
+			// make sure that it is signed by the CA
+			let sender = ensure_signed(origin)?;
 
-			// Update storage.
-			<Something<T>>::put(something);
+			// L121 - L135 should be moved into a fn
+			// Use match on current phase to fetch state transition logic
+			let ca = Self::ca();
+			if let Some(ca) = ca {
+				ensure!(sender == ca, <Error<T>>::SenderNotCA);
+			} else {
+				// if CA is not set, return error
+				return Err(Error::<T>::InternalError.into())
+			}
 
-			// Emit an event.
-			Self::deposit_event(Event::SomethingStored { something, who });
-			// Return a successful DispatchResultWithPostInfo
+			let current_phase = Self::phase();
+			if let Some(current_phase) = current_phase {
+				ensure!(current_phase == ElectionPhase::Initialization, <Error<T>>::InvalidPhaseChange);
+			} else {
+				return Err(Error::<T>::InternalError.into())
+			}
+
+
+			// Update the phase
+			<Phase<T>>::put(phase.clone());
+
+			// Emit event
+			Self::deposit_event(Event::PhaseChanged {
+				when: frame_system::Pallet::<T>::block_number(),
+				phase,
+			});
+
 			Ok(())
 		}
 
-		/// An example dispatchable that may throw a custom error.
+		#[pallet::weight(10_000 + T::DbWeight::get().writes(1).ref_time())]
 		#[pallet::call_index(1)]
-		#[pallet::weight(10_000 + T::DbWeight::get().reads_writes(1,1).ref_time())]
-		pub fn cause_error(origin: OriginFor<T>) -> DispatchResult {
-			let _who = ensure_signed(origin)?;
-
-			// Read a value from storage.
-			match <Something<T>>::get() {
-				// Return an error if the value has not been set.
-				None => Err(Error::<T>::NoneValue.into()),
-				Some(old) => {
-					// Increment the value read from storage; will error in the event of overflow.
-					let new = old.checked_add(1).ok_or(Error::<T>::StorageOverflow)?;
-					// Update the value in storage with the incremented result.
-					<Something<T>>::put(new);
-					Ok(())
-				},
+		pub fn add_voter(origin: OriginFor<T>, voter: T::AccountId, blinded_pubkey: Vec<u8>, signed_blinded_pubkey: Vec<u8>, is_eligible: bool) -> DispatchResult {
+			// make sure that it is signed by the CA
+			let sender = ensure_signed(origin)?;
+			let ca = Self::ca();
+			if let Some(ca) = ca {
+				ensure!(sender == ca, <Error<T>>::SenderNotCA);
+			} else {
+				// if CA is not set, return error
+				return Err(Error::<T>::InternalError.into())
 			}
+
+			// Voters can only be added during the registration phase
+			ensure!(Self::get_phase() == Some(ElectionPhase::Registration), <Error<T>>::InvalidPhase);
+
+			// If the voter already exists, return error
+			ensure!(!<Voters<T>>::contains_key(&voter), <Error<T>>::VoterAlreadyExists);
+
+			// Update the phase
+			<Voters<T>>::insert(voter, Voter {
+				blinded_pubkey,
+				is_eligible,
+				signed_blinded_pubkey,
+			});
+
+			Ok(())
+		}
+
+		#[pallet::weight(10_000 + T::DbWeight::get().writes(1).ref_time())]
+		#[pallet::call_index(2)]
+		pub fn update_candidate_info(origin: OriginFor<T>, candidate: T::AccountId, name: Vec<u8>) -> DispatchResult {
+			// make sure that it is signed by the CA
+			let sender = ensure_signed(origin)?;
+			if sender != candidate {
+				return Err(Error::<T>::BadSender.into())
+			}
+
+			// Update the phase
+			<Candidates<T>>::insert(candidate, Candidate {
+				name,
+			});
+
+			Ok(())
+		}
+	}
+
+	impl<T: Config> Pallet<T> {
+		pub fn get_phase() -> Option<ElectionPhase> {
+			<Phase<T>>::get()
+		}
+
+		pub fn get_voter(voter: T::AccountId) -> Option<Voter> {
+			<Voters<T>>::get(voter)
+		}
+
+		pub fn get_candidate(candidate: T::AccountId) -> Option<Candidate> {
+			<Candidates<T>>::get(candidate)
 		}
 	}
 }

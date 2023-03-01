@@ -1,4 +1,4 @@
-use crate as pallet_template;
+use crate as pallet_voting_system;
 use frame_support::traits::{ConstU16, ConstU64};
 use frame_system as system;
 use sp_core::H256;
@@ -18,7 +18,7 @@ frame_support::construct_runtime!(
 		UncheckedExtrinsic = UncheckedExtrinsic,
 	{
 		System: frame_system,
-		TemplateModule: pallet_template,
+		VotingSystem: pallet_voting_system,
 	}
 );
 
@@ -49,11 +49,18 @@ impl system::Config for Test {
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
-impl pallet_template::Config for Test {
+impl pallet_voting_system::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 }
 
 // Build genesis storage according to the mock runtime.
-pub fn new_test_ext() -> sp_io::TestExternalities {
-	system::GenesisConfig::default().build_storage::<Test>().unwrap().into()
+pub fn new_test_ext(root_key: u64) -> sp_io::TestExternalities {
+	let mut t = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
+	pallet_voting_system::GenesisConfig::<Test> {
+		central_authority: Some(root_key),
+		candidates: vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+	}
+	.assimilate_storage(&mut t)
+	.unwrap();
+	t.into()
 }

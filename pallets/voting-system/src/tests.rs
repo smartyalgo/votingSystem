@@ -1,6 +1,5 @@
-use crate::{mock::*, ElectionPhase::None, ElectionPhase::Initialization, Error, Event};
+use crate::{mock::*, ElectionPhase::*, Error, Voter, Event};
 use frame_support::{assert_ok, assert_noop};
-use crate::{ElectionPhase::Registration, Voter};
 
 #[test]
 fn change_phase_works() {
@@ -30,7 +29,6 @@ fn change_phase_errors_when_not_ca() {
 
 		// when
 		System::set_block_number(1);
-		// VotingSystem::change_phase(RuntimeOrigin::signed(nonce), phase.clone())
 
 		assert_noop!(VotingSystem::change_phase(RuntimeOrigin::signed(nonce), phase.clone()), Error::<Test>::SenderNotCA);
 	});

@@ -22,13 +22,13 @@ pub mod pallet {
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
 		pub central_authority: Option<T::AccountId>,
-		pub voters: Vec<T::AccountId>,
+		pub candidates: Vec<T::AccountId>,
 	}
 
 	#[cfg(feature = "std")]
 	impl<T: Config> Default for GenesisConfig<T> {
 		fn default() -> Self {
-			Self { central_authority: None, voters: Vec::new() }
+			Self { central_authority: None, candidates: Vec::new() }
 		}
 	}
 
@@ -38,8 +38,8 @@ pub mod pallet {
 			if let Some(ref ca) = self.central_authority {
 				CentralAuthority::<T>::put(ca);
 			}
-			for voter in &self.voters {
-				Voters::<T>::insert(voter, 0);
+			for candidate in &self.candidates {
+				Candidates::<T>::insert(candidate, 0);
 			}
 		}
 	}
@@ -85,8 +85,8 @@ pub mod pallet {
 	pub type Phase<T: Config> = StorageValue<_, ElectionPhase, OptionQuery>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn voters)]
-	pub type Voters<T: Config> = StorageMap<_, Twox64Concat, T::AccountId, u32, OptionQuery>;
+	#[pallet::getter(fn candidates)]
+	pub type Candidates<T: Config> = StorageMap<_, Twox64Concat, T::AccountId, u32, OptionQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]

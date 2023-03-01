@@ -58,7 +58,7 @@ pub fn new_test_ext(root_key: u64) -> sp_io::TestExternalities {
 	let mut t = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
 	pallet_voting_system::GenesisConfig::<Test> {
 		central_authority: Some(root_key),
-		candidates: vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+		candidates: vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
 	}
 	.assimilate_storage(&mut t)
 	.unwrap();

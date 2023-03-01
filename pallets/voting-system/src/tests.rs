@@ -1,6 +1,5 @@
-use crate::{mock::*, ElectionPhase::*, Error, Voter, Event, Candidate};
-use frame_support::{assert_ok, assert_noop};
-use crate::{ElectionPhase::Registration};
+use crate::{mock::*, Candidate, ElectionPhase::Registration, Error, Event, Voter};
+use frame_support::{assert_noop, assert_ok};
 
 #[test]
 fn change_phase_works() {
@@ -8,15 +7,14 @@ fn change_phase_works() {
 	new_test_ext(root_key).execute_with(|| {
 		// with
 		let ca = root_key;
-		let phase = Initialization;
 
 		// when
 		System::set_block_number(1);
-		assert_ok!(VotingSystem::change_phase(RuntimeOrigin::signed(ca), phase.clone()));
+		assert_ok!(VotingSystem::change_phase(RuntimeOrigin::signed(ca)));
 
 		// then
-		assert_eq!(VotingSystem::phase(), Some(phase.clone()));
-		System::assert_last_event(Event::PhaseChanged { phase, when: 1 }.into());
+		assert_eq!(VotingSystem::phase(), Some(Registration));
+		System::assert_last_event(Event::PhaseChanged { phase: Registration, when: 1 }.into());
 	});
 }
 
@@ -26,13 +24,15 @@ fn change_phase_errors_when_not_ca() {
 	new_test_ext(root_key).execute_with(|| {
 		// with
 		let nonce: u64 = 2;
-		let phase = None;
 
 		// when
 		System::set_block_number(1);
-		// VotingSystem::change_phase(RuntimeOrigin::signed(nonce), phase.clone())
 
-		assert_noop!(VotingSystem::change_phase(RuntimeOrigin::signed(nonce), phase.clone()), Error::<Test>::SenderNotCA);
+		// then
+		assert_noop!(
+			VotingSystem::change_phase(RuntimeOrigin::signed(nonce)),
+			Error::<Test>::SenderNotCA
+		);
 	});
 }
 
@@ -49,15 +49,20 @@ fn can_add_voter() {
 
 		// when
 		System::set_block_number(1);
-		assert_ok!(VotingSystem::change_phase(RuntimeOrigin::signed(ca), Registration));
-		assert_ok!(VotingSystem::add_voter(RuntimeOrigin::signed(ca), voter, blinded_pubkey.clone(), signed_blinded_pubkey.clone(), is_eligible));
+		assert_ok!(VotingSystem::change_phase(RuntimeOrigin::signed(ca)));
+		assert_ok!(VotingSystem::add_voter(
+			RuntimeOrigin::signed(ca),
+			voter,
+			blinded_pubkey.clone(),
+			signed_blinded_pubkey.clone(),
+			is_eligible
+		));
 
 		// then
-		assert_eq!(VotingSystem::voters(voter), Some(Voter {
-			blinded_pubkey,
-			signed_blinded_pubkey,
-			is_eligible,
-		}));
+		assert_eq!(
+			VotingSystem::voters(voter),
+			Some(Voter { blinded_pubkey, signed_blinded_pubkey, is_eligible })
+		);
 	})
 }
 
@@ -71,9 +76,13 @@ fn can_update_candidate() {
 
 		// when
 		System::set_block_number(1);
-		assert_ok!(VotingSystem::update_candidate_info(RuntimeOrigin::signed(candidate), candidate, name.clone()));
+		assert_ok!(VotingSystem::update_candidate_info(
+			RuntimeOrigin::signed(candidate),
+			candidate,
+			name.clone()
+		));
 
 		// then
-		assert_eq!(VotingSystem::get_candidate(candidate), Some(Candidate {name}));
+		assert_eq!(VotingSystem::get_candidate(candidate), Some(Candidate { name }));
 	})
 }

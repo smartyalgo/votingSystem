@@ -12,9 +12,8 @@ mod benchmarking;
 
 #[frame_support::pallet]
 pub mod pallet {
-	use frame_support::pallet_prelude::*;
+	use frame_support::{inherent::Vec, pallet_prelude::*};
 	use frame_system::pallet_prelude::*;
-	use frame_support::inherent::Vec;
 
 	#[pallet::pallet]
 	#[pallet::generate_store(pub(super) trait Store)]
@@ -42,7 +41,7 @@ pub mod pallet {
 				CentralAuthority::<T>::put(ca);
 			}
 			for candidate in &self.candidates {
-				Candidates::<T>::insert(candidate, Candidate{ name: vec![] } );
+				Candidates::<T>::insert(candidate, Candidate { name: vec![] });
 			}
 		}
 	}
@@ -72,6 +71,22 @@ pub mod pallet {
 		BiasedSigner,
 		Voting,
 		Counting,
+		Completed,
+	}
+
+	impl ElectionPhase {
+		fn increment(&self) -> Self {
+			use ElectionPhase::*;
+			match *self {
+				None => Initialization,
+				Initialization => Registration,
+				Registration => BiasedSigner,
+				BiasedSigner => Voting,
+				Voting => Counting,
+				Counting => Completed,
+				_ => None,
+			}
+		}
 	}
 
 	#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, TypeInfo)]
@@ -115,7 +130,8 @@ pub mod pallet {
 
 	#[pallet::storage]
 	#[pallet::getter(fn candidates)]
-	pub type Candidates<T: Config> = StorageMap<_, Twox64Concat, T::AccountId, Candidate, OptionQuery>;
+	pub type Candidates<T: Config> =
+		StorageMap<_, Twox64Concat, T::AccountId, Candidate, OptionQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn voters)]
@@ -152,12 +168,10 @@ pub mod pallet {
 
 		#[pallet::weight(10_000 + T::DbWeight::get().writes(1).ref_time())]
 		#[pallet::call_index(0)]
-		pub fn change_phase(origin: OriginFor<T>, phase: ElectionPhase) -> DispatchResult {
+		pub fn change_phase(origin: OriginFor<T>) -> DispatchResult {
 			// make sure that it is signed by the CA
 			let sender = ensure_signed(origin)?;
 
-			// L121 - L135 should be moved into a fn
-			// Use match on current phase to fetch state transition logic
 			let ca = Self::ca();
 			if let Some(ca) = ca {
 				ensure!(sender == ca, <Error<T>>::SenderNotCA);
@@ -166,21 +180,14 @@ pub mod pallet {
 				return Err(Error::<T>::InternalError.into())
 			}
 
-			let current_phase = Self::phase();
-			if let Some(current_phase) = current_phase {
-				ensure!(current_phase == ElectionPhase::Initialization, <Error<T>>::InvalidPhaseChange);
-			} else {
-				return Err(Error::<T>::InternalError.into())
-			}
-
-
 			// Update the phase
-			<Phase<T>>::put(phase.clone());
+			let new_phase = Self::phase().expect("REASON").increment();
+			<Phase<T>>::put(new_phase.clone());
 
 			// Emit event
 			Self::deposit_event(Event::PhaseChanged {
 				when: frame_system::Pallet::<T>::block_number(),
-				phase,
+				phase: new_phase,
 			});
 
 			Ok(())
@@ -188,7 +195,13 @@ pub mod pallet {
 
 		#[pallet::weight(10_000 + T::DbWeight::get().writes(1).ref_time())]
 		#[pallet::call_index(1)]
-		pub fn add_voter(origin: OriginFor<T>, voter: T::AccountId, blinded_pubkey: Vec<u8>, signed_blinded_pubkey: Vec<u8>, is_eligible: bool) -> DispatchResult {
+		pub fn add_voter(
+			origin: OriginFor<T>,
+			voter: T::AccountId,
+			blinded_pubkey: Vec<u8>,
+			signed_blinded_pubkey: Vec<u8>,
+			is_eligible: bool,
+		) -> DispatchResult {
 			// make sure that it is signed by the CA
 			let sender = ensure_signed(origin)?;
 			let ca = Self::ca();
@@ -200,34 +213,36 @@ pub mod pallet {
 			}
 
 			// Voters can only be added during the registration phase
-			ensure!(Self::get_phase() == Some(ElectionPhase::Registration), <Error<T>>::InvalidPhase);
+			ensure!(
+				Self::get_phase() == Some(ElectionPhase::Registration),
+				<Error<T>>::InvalidPhase
+			);
 
 			// If the voter already exists, return error
 			ensure!(!<Voters<T>>::contains_key(&voter), <Error<T>>::VoterAlreadyExists);
 
 			// Update the phase
-			<Voters<T>>::insert(voter, Voter {
-				blinded_pubkey,
-				is_eligible,
-				signed_blinded_pubkey,
-			});
+			<Voters<T>>::insert(
+				voter,
+				Voter { blinded_pubkey, is_eligible, signed_blinded_pubkey },
+			);
 
 			Ok(())
 		}
 
 		#[pallet::weight(10_000 + T::DbWeight::get().writes(1).ref_time())]
 		#[pallet::call_index(2)]
-		pub fn update_candidate_info(origin: OriginFor<T>, candidate: T::AccountId, name: Vec<u8>) -> DispatchResult {
+		pub fn update_candidate_info(
+			origin: OriginFor<T>,
+			candidate: T::AccountId,
+			name: Vec<u8>,
+		) -> DispatchResult {
 			// make sure that it is signed by the CA
 			let sender = ensure_signed(origin)?;
-			if sender != candidate {
-				return Err(Error::<T>::BadSender.into())
-			}
+			ensure!(sender == candidate, <Error<T>>::BadSender);
 
 			// Update the phase
-			<Candidates<T>>::insert(candidate, Candidate {
-				name,
-			});
+			<Candidates<T>>::insert(candidate, Candidate { name });
 
 			Ok(())
 		}
@@ -246,4 +261,8 @@ pub mod pallet {
 			<Candidates<T>>::get(candidate)
 		}
 	}
+
+	// impl<T: Config> Pallet<T> {
+	// 	fn ensure_ca
+	// }
 }

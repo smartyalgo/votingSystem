@@ -125,6 +125,9 @@ fn testnet_genesis(
 			// Assign network admin rights.
 			key: Some(root_key.clone()),
 		},
-		voting_system: VotingSystemConfig { central_authority: Some(root_key), candidates: Vec::new() },
+		voting_system: VotingSystemConfig {
+			central_authority: Some(root_key),
+			candidates: Vec::new(),
+		},
 	}
 }

@@ -1,4 +1,4 @@
-use crate::{mock::*, ElectionPhase::None, ElectionPhase::Initialization, Error, Event, Candidate};
+use crate::{mock::*, ElectionPhase::*, Error, Voter, Event, Candidate};
 use frame_support::{assert_ok, assert_noop};
 use crate::{ElectionPhase::Registration, Voter};
 

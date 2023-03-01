@@ -14,6 +14,7 @@ mod benchmarking;
 pub mod pallet {
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
+	use frame_support::inherent::Vec;
 
 	#[pallet::pallet]
 	#[pallet::generate_store(pub(super) trait Store)]
@@ -43,6 +44,7 @@ pub mod pallet {
 			for candidate in &self.candidates {
 				Candidates::<T>::insert(candidate, Candidate{ name: vec![] } );
 			}
+			Phase::<T>::put(ElectionPhase::Initialization);
 		}
 	}
 
@@ -136,18 +138,25 @@ pub mod pallet {
 		/// Voter already exists
 		VoterAlreadyExists,
 		/// Invalid phase
-		InvalidPhase,
+		InvalidPhaseChange,
 		/// Bad Sender
 		BadSender,
 	}
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
+		// fn verify_change_to_registration(origin: <T as Config>::AccountId) -> Option<Error<T>> {
+
+		// }
+
 		#[pallet::weight(10_000 + T::DbWeight::get().writes(1).ref_time())]
 		#[pallet::call_index(0)]
 		pub fn change_phase(origin: OriginFor<T>, phase: ElectionPhase) -> DispatchResult {
 			// make sure that it is signed by the CA
 			let sender = ensure_signed(origin)?;
+
+			// L121 - L135 should be moved into a fn
+			// Use match on current phase to fetch state transition logic
 			let ca = Self::ca();
 			if let Some(ca) = ca {
 				ensure!(sender == ca, <Error<T>>::SenderNotCA);
@@ -155,6 +164,14 @@ pub mod pallet {
 				// if CA is not set, return error
 				return Err(Error::<T>::InternalError.into())
 			}
+
+			let current_phase = Self::phase();
+			if let Some(current_phase) = current_phase {
+				ensure!(current_phase == ElectionPhase::Initialization, <Error<T>>::InvalidPhaseChange);
+			} else {
+				return Err(Error::<T>::InternalError.into())
+			}
+
 
 			// Update the phase
 			<Phase<T>>::put(phase.clone());
@@ -182,7 +199,7 @@ pub mod pallet {
 			}
 
 			// Voters can only be added during the registration phase
-			ensure!(Self::get_phase() == Some(ElectionPhase::Registration), <Error<T>>::InvalidPhase);
+			ensure!(Self::get_phase() == Some(ElectionPhase::Registration), <Error<T>>::InvalidPhaseChange);
 
 			// If the voter already exists, return error
 			ensure!(!<Voters<T>>::contains_key(&voter), <Error<T>>::VoterAlreadyExists);

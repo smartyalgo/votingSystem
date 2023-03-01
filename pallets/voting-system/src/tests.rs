@@ -1,4 +1,4 @@
-use crate::{mock::*, ElectionPhase::None, ElectionPhase::Initialization, Error, Event};
+use crate::{mock::*, ElectionPhase::None, ElectionPhase::Initialization, Error, Event, Candidate};
 use frame_support::{assert_ok, assert_noop};
 use crate::{ElectionPhase::Registration, Voter};
 
@@ -58,5 +58,22 @@ fn can_add_voter() {
 			signed_blinded_pubkey,
 			is_eligible,
 		}));
+	})
+}
+
+#[test]
+fn can_update_candidate() {
+	let root_key = 1;
+	new_test_ext(root_key).execute_with(|| {
+		// with
+		let candidate = 2;
+		let name = vec![1, 2, 3];
+
+		// when
+		System::set_block_number(1);
+		assert_ok!(VotingSystem::update_candidate_info(RuntimeOrigin::signed(candidate), candidate, name.clone()));
+
+		// then
+		assert_eq!(VotingSystem::get_candidate(candidate), Some(Candidate {name}));
 	})
 }

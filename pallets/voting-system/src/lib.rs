@@ -41,7 +41,7 @@ pub mod pallet {
 				CentralAuthority::<T>::put(ca);
 			}
 			for candidate in &self.candidates {
-				Candidates::<T>::insert(candidate, 0);
+				Candidates::<T>::insert(candidate, Candidate{ name: vec![] } );
 			}
 		}
 	}
@@ -87,6 +87,18 @@ pub mod pallet {
 		}
 	}
 
+	#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, TypeInfo)]
+	pub struct Candidate {
+		pub name: Vec<u8>,
+	}
+
+	/// Todo: determine maximum length of struct storage
+	impl MaxEncodedLen for Candidate {
+		fn max_encoded_len() -> usize {
+			usize::MAX - 1
+		}
+	}
+
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
@@ -102,7 +114,7 @@ pub mod pallet {
 
 	#[pallet::storage]
 	#[pallet::getter(fn candidates)]
-	pub type Candidates<T: Config> = StorageMap<_, Twox64Concat, T::AccountId, u32, OptionQuery>;
+	pub type Candidates<T: Config> = StorageMap<_, Twox64Concat, T::AccountId, Candidate, OptionQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn voters)]
@@ -125,6 +137,8 @@ pub mod pallet {
 		VoterAlreadyExists,
 		/// Invalid phase
 		InvalidPhase,
+		/// Bad Sender
+		BadSender,
 	}
 
 	#[pallet::call]
@@ -182,6 +196,23 @@ pub mod pallet {
 
 			Ok(())
 		}
+
+		#[pallet::weight(10_000 + T::DbWeight::get().writes(1).ref_time())]
+		#[pallet::call_index(2)]
+		pub fn update_candidate_info(origin: OriginFor<T>, candidate: T::AccountId, name: Vec<u8>) -> DispatchResult {
+			// make sure that it is signed by the CA
+			let sender = ensure_signed(origin)?;
+			if sender != candidate {
+				return Err(Error::<T>::BadSender.into())
+			}
+
+			// Update the phase
+			<Candidates<T>>::insert(candidate, Candidate {
+				name,
+			});
+
+			Ok(())
+		}
 	}
 
 	impl<T: Config> Pallet<T> {
@@ -191,6 +222,10 @@ pub mod pallet {
 
 		pub fn get_voter(voter: T::AccountId) -> Option<Voter> {
 			<Voters<T>>::get(voter)
+		}
+
+		pub fn get_candidate(candidate: T::AccountId) -> Option<Candidate> {
+			<Candidates<T>>::get(candidate)
 		}
 	}
 }

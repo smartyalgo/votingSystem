@@ -137,8 +137,10 @@ pub mod pallet {
 		SenderNotCA,
 		/// Voter already exists
 		VoterAlreadyExists,
-		/// Invalid phase
+		/// Invalid phase change
 		InvalidPhaseChange,
+		/// Invalid phase
+		InvalidPhase,
 		/// Bad Sender
 		BadSender,
 	}
@@ -199,7 +201,7 @@ pub mod pallet {
 			}
 
 			// Voters can only be added during the registration phase
-			ensure!(Self::get_phase() == Some(ElectionPhase::Registration), <Error<T>>::InvalidPhaseChange);
+			ensure!(Self::get_phase() == Some(ElectionPhase::Registration), <Error<T>>::InvalidPhase);
 
 			// If the voter already exists, return error
 			ensure!(!<Voters<T>>::contains_key(&voter), <Error<T>>::VoterAlreadyExists);

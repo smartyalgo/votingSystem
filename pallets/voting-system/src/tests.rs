@@ -1,6 +1,6 @@
 use crate::{mock::*, ElectionPhase::*, Error, Voter, Event, Candidate};
 use frame_support::{assert_ok, assert_noop};
-use crate::{ElectionPhase::Registration, Voter};
+use crate::{ElectionPhase::Registration};
 
 #[test]
 fn change_phase_works() {

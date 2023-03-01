@@ -73,6 +73,20 @@ pub mod pallet {
 		Counting,
 	}
 
+	#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, TypeInfo)]
+	pub struct Voter {
+		pub blinded_pubkey: Vec<u8>,
+		pub is_eligible: bool,
+		pub signed_blinded_pubkey: Vec<u8>,
+	}
+
+	/// Todo: determine maximum length of struct storage
+	impl MaxEncodedLen for Voter {
+		fn max_encoded_len() -> usize {
+			usize::MAX - 1
+		}
+	}
+
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
@@ -90,6 +104,10 @@ pub mod pallet {
 	#[pallet::getter(fn candidates)]
 	pub type Candidates<T: Config> = StorageMap<_, Twox64Concat, T::AccountId, u32, OptionQuery>;
 
+	#[pallet::storage]
+	#[pallet::getter(fn voters)]
+	pub type Voters<T: Config> = StorageMap<_, Twox64Concat, T::AccountId, Voter, OptionQuery>;
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
@@ -103,6 +121,10 @@ pub mod pallet {
 		InternalError,
 		/// Error when the sender is not CA
 		SenderNotCA,
+		/// Voter already exists
+		VoterAlreadyExists,
+		/// Invalid phase
+		InvalidPhase,
 	}
 
 	#[pallet::call]
@@ -131,11 +153,44 @@ pub mod pallet {
 
 			Ok(())
 		}
+
+		#[pallet::weight(10_000 + T::DbWeight::get().writes(1).ref_time())]
+		#[pallet::call_index(1)]
+		pub fn add_voter(origin: OriginFor<T>, voter: T::AccountId, blinded_pubkey: Vec<u8>, signed_blinded_pubkey: Vec<u8>, is_eligible: bool) -> DispatchResult {
+			// make sure that it is signed by the CA
+			let sender = ensure_signed(origin)?;
+			let ca = Self::ca();
+			if let Some(ca) = ca {
+				ensure!(sender == ca, <Error<T>>::SenderNotCA);
+			} else {
+				// if CA is not set, return error
+				return Err(Error::<T>::InternalError.into())
+			}
+
+			// Voters can only be added during the registration phase
+			ensure!(Self::get_phase() == Some(ElectionPhase::Registration), <Error<T>>::InvalidPhase);
+
+			// If the voter already exists, return error
+			ensure!(!<Voters<T>>::contains_key(&voter), <Error<T>>::VoterAlreadyExists);
+
+			// Update the phase
+			<Voters<T>>::insert(voter, Voter {
+				blinded_pubkey,
+				is_eligible,
+				signed_blinded_pubkey,
+			});
+
+			Ok(())
+		}
 	}
 
 	impl<T: Config> Pallet<T> {
 		pub fn get_phase() -> Option<ElectionPhase> {
 			<Phase<T>>::get()
+		}
+
+		pub fn get_voter(voter: T::AccountId) -> Option<Voter> {
+			<Voters<T>>::get(voter)
 		}
 	}
 }

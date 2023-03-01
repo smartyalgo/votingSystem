@@ -14,6 +14,7 @@ mod benchmarking;
 pub mod pallet {
 	use frame_support::{inherent::Vec, pallet_prelude::*};
 	use frame_system::pallet_prelude::*;
+	use scale_info::prelude::string::String;
 
 	#[pallet::pallet]
 	#[pallet::generate_store(pub(super) trait Store)]
@@ -41,7 +42,7 @@ pub mod pallet {
 				CentralAuthority::<T>::put(ca);
 			}
 			for candidate in &self.candidates {
-				Candidates::<T>::insert(candidate, Candidate { name: vec![] });
+				Candidates::<T>::insert(candidate, Candidate { name: "".to_string() });
 			}
 		}
 	}
@@ -105,7 +106,7 @@ pub mod pallet {
 
 	#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, TypeInfo)]
 	pub struct Candidate {
-		pub name: Vec<u8>,
+		pub name: String,
 	}
 
 	/// Todo: determine maximum length of struct storage
@@ -235,13 +236,13 @@ pub mod pallet {
 		pub fn update_candidate_info(
 			origin: OriginFor<T>,
 			candidate: T::AccountId,
-			name: Vec<u8>,
+			name: String,
 		) -> DispatchResult {
 			// make sure that it is signed by the CA
 			let sender = ensure_signed(origin)?;
 			ensure!(sender == candidate, <Error<T>>::BadSender);
 
-			// Update the phase
+			// Update candidate info
 			<Candidates<T>>::insert(candidate, Candidate { name });
 
 			Ok(())
@@ -261,8 +262,4 @@ pub mod pallet {
 			<Candidates<T>>::get(candidate)
 		}
 	}
-
-	// impl<T: Config> Pallet<T> {
-	// 	fn ensure_ca
-	// }
 }

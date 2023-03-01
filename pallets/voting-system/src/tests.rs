@@ -72,17 +72,17 @@ fn can_update_candidate() {
 	new_test_ext(root_key).execute_with(|| {
 		// with
 		let candidate = 2;
-		let name = vec![1, 2, 3];
+		let name = "candidate 1";
 
 		// when
 		System::set_block_number(1);
 		assert_ok!(VotingSystem::update_candidate_info(
 			RuntimeOrigin::signed(candidate),
 			candidate,
-			name.clone()
+			name.to_string()
 		));
 
 		// then
-		assert_eq!(VotingSystem::get_candidate(candidate), Some(Candidate { name }));
+		assert_eq!(VotingSystem::get_candidate(candidate), Some(Candidate { name: name.to_string() }));
 	})
 }

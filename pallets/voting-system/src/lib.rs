@@ -44,7 +44,6 @@ pub mod pallet {
 			for candidate in &self.candidates {
 				Candidates::<T>::insert(candidate, Candidate{ name: vec![] } );
 			}
-			Phase::<T>::put(ElectionPhase::Initialization);
 		}
 	}
 

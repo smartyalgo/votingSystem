@@ -35,6 +35,8 @@ pub mod pallet {
 	#[pallet::genesis_build]
 	impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
 		fn build(&self) {
+			Phase::<T>::put(ElectionPhase::Initialization);
+
 			if let Some(ref ca) = self.central_authority {
 				CentralAuthority::<T>::put(ca);
 			}

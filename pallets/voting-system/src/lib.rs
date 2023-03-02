@@ -42,7 +42,11 @@ pub mod pallet {
 				CentralAuthority::<T>::put(ca);
 			}
 			for candidate in &self.candidates {
-				Candidates::<T>::insert(candidate, Candidate { name: "".to_string() });
+				// pubkey with place holder
+				Candidates::<T>::insert(
+					candidate,
+					Candidate { name: "".to_string(), pubkey: Vec::new() },
+				);
 			}
 		}
 	}
@@ -92,11 +96,11 @@ pub mod pallet {
 
 	#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, TypeInfo)]
 	pub struct Voter {
-		pub id: u64,
 		pub blinded_pubkey: Vec<u8>,
 		pub is_eligible: bool,
+		// Signed by CA after verifying eligibility
 		pub signed_blinded_pubkey: Vec<u8>,
-		pub personal_data_hash: Vec<u8>
+		pub personal_data_hash: Vec<u8>,
 	}
 
 	/// Todo: determine maximum length of struct storage
@@ -109,6 +113,8 @@ pub mod pallet {
 	#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, TypeInfo)]
 	pub struct Candidate {
 		pub name: String,
+		// RSA Key
+		pub pubkey: Vec<u8>,
 	}
 
 	/// Todo: determine maximum length of struct storage
@@ -159,7 +165,7 @@ pub mod pallet {
 	pub type Voters<T: Config> = StorageMap<_, Twox64Concat, u64, Voter, OptionQuery>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn blinded_signatures)]
+	#[pallet::getter(fn blinded_signatures)] // (voter_id, candidate_id) -> signature
 	pub type BlindedSignatures<T: Config> = StorageDoubleMap<
 		_,
 		Twox64Concat,
@@ -218,7 +224,7 @@ pub mod pallet {
 				ensure!(sender == ca, <Error<T>>::SenderNotCA);
 			} else {
 				// if CA is not set, return error
-				return Err(Error::<T>::InternalError.into());
+				return Err(Error::<T>::InternalError.into())
 			}
 
 			// Update the phase
@@ -254,7 +260,7 @@ pub mod pallet {
 			} else {
 				// if CA is not set, return error
 				// TODO: Change to Incorrect Configuration
-				return Err(Error::<T>::InternalError.into());
+				return Err(Error::<T>::InternalError.into())
 			}
 
 			// Voters can only be added during the registration phase
@@ -270,7 +276,7 @@ pub mod pallet {
 			// Update the phase
 			<Voters<T>>::insert(
 				voter_index,
-				Voter { id: voter_index, blinded_pubkey, is_eligible, signed_blinded_pubkey, personal_data_hash },
+				Voter { blinded_pubkey, is_eligible, signed_blinded_pubkey, personal_data_hash },
 			);
 			VoterCount::<T>::put(voter_index);
 
@@ -283,19 +289,38 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			candidate: T::AccountId,
 			name: String,
+			pubkey: Vec<u8>,
 		) -> DispatchResult {
 			// make sure that it is signed by the CA
 			let sender = ensure_signed(origin)?;
 			ensure!(sender == candidate, <Error<T>>::BadSender);
 
 			// Update candidate info
-			<Candidates<T>>::insert(candidate, Candidate { name });
+			<Candidates<T>>::insert(candidate, Candidate { name, pubkey });
 
 			Ok(())
 		}
 
 		#[pallet::weight(10_000 + T::DbWeight::get().writes(1).ref_time())]
 		#[pallet::call_index(3)]
+		pub fn biased_signing(
+			origin: OriginFor<T>,
+			candidate: T::AccountId,
+			voter: u64,
+			blinded_signature: BoundedVec<u8, T::SignatureLength>,
+		) -> DispatchResult {
+			// make sure that it is signed by the candidate
+			let sender = ensure_signed(origin)?;
+			ensure!(sender == candidate, <Error<T>>::BadSender);
+
+			// Write to BlindedSignature
+			<BlindedSignatures<T>>::insert(voter, candidate, blinded_signature);
+
+			Ok(())
+		}
+
+		#[pallet::weight(10_000 + T::DbWeight::get().writes(1).ref_time())]
+		#[pallet::call_index(4)]
 		pub fn vote(
 			origin: OriginFor<T>,
 			commitment: Vec<u8>,
@@ -310,16 +335,13 @@ pub mod pallet {
 			ensure!(<Ballots<T>>::get(sender.clone()).is_none(), <Error<T>>::BallotAlreadyExists);
 
 			// Add the ballot
-			<Ballots<T>>::insert(
-				sender,
-				Ballot { commitment, signature, nonce: 1 },
-			);
+			<Ballots<T>>::insert(sender, Ballot { commitment, signature, nonce: 1 });
 
 			Ok(())
 		}
 
 		#[pallet::weight(10_000 + T::DbWeight::get().writes(1).ref_time())]
-		#[pallet::call_index(4)]
+		#[pallet::call_index(5)]
 		pub fn change_vote(
 			origin: OriginFor<T>,
 			commitment: Vec<u8>,
@@ -336,10 +358,7 @@ pub mod pallet {
 			let ballot = Self::ballots(sender.clone()).ok_or(<Error<T>>::BallotNotFound)?;
 
 			// Change the ballot
-			<Ballots<T>>::insert(
-				sender,
-				Ballot { commitment, signature, nonce: ballot.nonce + 1 },
-			);
+			<Ballots<T>>::insert(sender, Ballot { commitment, signature, nonce: ballot.nonce + 1 });
 
 			Ok(())
 		}

@@ -45,27 +45,24 @@ fn e2e() {
 
 		assert_ok!(VotingSystem::vote(
 			RuntimeOrigin::signed(voter),
-			voter,
 			commitment.clone(),
 			signature.clone()
 		));
 		assert_eq!(
 			VotingSystem::get_ballot(voter),
-			Some(Ballot { voter_id: voter, commitment, signature, nonce: 1 })
+			Some(Ballot { commitment, signature, nonce: 1 })
 		);
 
 		let new_commitment = vec![1, 2, 3, 4];
 		let new_signature = vec![4, 5, 6, 7];
 		assert_ok!(VotingSystem::change_vote(
 			RuntimeOrigin::signed(voter),
-			voter,
 			new_commitment.clone(),
 			new_signature.clone()
 		));
 		assert_eq!(
 			VotingSystem::get_ballot(voter),
 			Some(Ballot {
-				voter_id: voter,
 				commitment: new_commitment,
 				signature: new_signature,
 				nonce: 2
@@ -195,13 +192,12 @@ fn can_vote() {
 		// then vote
 		assert_ok!(VotingSystem::vote(
 			RuntimeOrigin::signed(voter),
-			voter,
 			commitment.clone(),
 			signature.clone()
 		));
 		assert_eq!(
 			VotingSystem::get_ballot(voter),
-			Some(Ballot { voter_id: voter, commitment, signature, nonce: 1 })
+			Some(Ballot { commitment, signature, nonce: 1 })
 		);
 	})
 }
@@ -234,13 +230,12 @@ pub fn can_change_vote() {
 		assert_ok!(VotingSystem::change_phase(RuntimeOrigin::signed(ca)));
 		assert_ok!(VotingSystem::vote(
 			RuntimeOrigin::signed(voter),
-			voter,
 			commitment.clone(),
 			signature.clone()
 		));
 		assert_eq!(
 			VotingSystem::get_ballot(voter),
-			Some(Ballot { voter_id: voter, commitment, signature, nonce: 1 })
+			Some(Ballot { commitment, signature, nonce: 1 })
 		);
 
 		// then change vote
@@ -248,14 +243,12 @@ pub fn can_change_vote() {
 		let new_signature = vec![4, 5, 6, 7];
 		assert_ok!(VotingSystem::change_vote(
 			RuntimeOrigin::signed(voter),
-			voter,
 			new_commitment.clone(),
 			new_signature.clone()
 		));
 		assert_eq!(
 			VotingSystem::get_ballot(voter),
 			Some(Ballot {
-				voter_id: voter,
 				commitment: new_commitment,
 				signature: new_signature,
 				nonce: 2

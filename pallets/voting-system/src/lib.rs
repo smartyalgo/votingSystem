@@ -120,8 +120,6 @@ pub mod pallet {
 
 	#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, TypeInfo)]
 	pub struct Ballot {
-		// TODO: Change Voter_id to Voter_Account as their public key
-		pub voter_id: u64,
 		pub commitment: Vec<u8>,
 		pub signature: Vec<u8>,
 		pub nonce: u64,
@@ -178,8 +176,7 @@ pub mod pallet {
 
 	#[pallet::storage]
 	#[pallet::getter(fn ballots)]
-	// TODO: Update to account id as well
-	pub type Ballots<T: Config> = StorageMap<_, Twox64Concat, u64, Ballot, OptionQuery>;
+	pub type Ballots<T: Config> = StorageMap<_, Twox64Concat, T::AccountId, Ballot, OptionQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -300,23 +297,22 @@ pub mod pallet {
 		#[pallet::weight(10_000 + T::DbWeight::get().writes(1).ref_time())]
 		#[pallet::call_index(3)]
 		pub fn vote(
-			_origin: OriginFor<T>,
-			voter: u64,
+			origin: OriginFor<T>,
 			commitment: Vec<u8>,
 			signature: Vec<u8>,
 		) -> DispatchResult {
-			// TODO: make sure that it is signed by the voter
+			let sender = ensure_signed(origin)?;
 
 			// Votes can only be cast during the voting phase
 			ensure!(Self::get_phase() == Some(ElectionPhase::Voting), <Error<T>>::InvalidPhase);
 
 			// Ensure that the ballot does not already exist
-			ensure!(<Ballots<T>>::get(voter).is_none(), <Error<T>>::BallotAlreadyExists);
+			ensure!(<Ballots<T>>::get(sender.clone()).is_none(), <Error<T>>::BallotAlreadyExists);
 
 			// Add the ballot
 			<Ballots<T>>::insert(
-				voter,
-				Ballot { voter_id: voter, commitment, signature, nonce: 1 },
+				sender,
+				Ballot { commitment, signature, nonce: 1 },
 			);
 
 			Ok(())
@@ -325,12 +321,11 @@ pub mod pallet {
 		#[pallet::weight(10_000 + T::DbWeight::get().writes(1).ref_time())]
 		#[pallet::call_index(4)]
 		pub fn change_vote(
-			_origin: OriginFor<T>,
-			voter: u64,
+			origin: OriginFor<T>,
 			commitment: Vec<u8>,
 			signature: Vec<u8>,
 		) -> DispatchResult {
-			// TODO: make sure that it is signed by the voter
+			let sender = ensure_signed(origin)?;
 
 			// TODO: make sure that the candidates signatures are valid
 
@@ -338,12 +333,12 @@ pub mod pallet {
 			ensure!(Self::get_phase() == Some(ElectionPhase::Voting), <Error<T>>::InvalidPhase);
 
 			// Get the ballot for the voter
-			let ballot = Self::ballots(voter).ok_or(<Error<T>>::BallotNotFound)?;
+			let ballot = Self::ballots(sender.clone()).ok_or(<Error<T>>::BallotNotFound)?;
 
 			// Change the ballot
 			<Ballots<T>>::insert(
-				voter,
-				Ballot { voter_id: voter, commitment, signature, nonce: ballot.nonce + 1 },
+				sender,
+				Ballot { commitment, signature, nonce: ballot.nonce + 1 },
 			);
 
 			Ok(())
@@ -367,7 +362,7 @@ pub mod pallet {
 			<Candidates<T>>::get(candidate)
 		}
 
-		pub fn get_ballot(voter: u64) -> Option<Ballot> {
+		pub fn get_ballot(voter: T::AccountId) -> Option<Ballot> {
 			<Ballots<T>>::get(voter)
 		}
 	}

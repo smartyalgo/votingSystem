@@ -119,6 +119,7 @@ pub mod pallet {
 
 	#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, TypeInfo)]
 	pub struct Ballot {
+		// TODO: Change Voter_id to Voter_Account as their public key
 		pub voter_id: u64,
 		pub commitment: Vec<u8>,
 		pub signature: Vec<u8>,
@@ -173,6 +174,7 @@ pub mod pallet {
 
 	#[pallet::storage]
 	#[pallet::getter(fn ballots)]
+	// TODO: Update to account id as well
 	pub type Ballots<T: Config> = StorageMap<_, Twox64Concat, u64, Ballot, OptionQuery>;
 
 	#[pallet::event]
@@ -325,12 +327,13 @@ pub mod pallet {
 		) -> DispatchResult {
 			// TODO: make sure that it is signed by the voter
 
+			// TODO: make sure that the candidates signatures are valid
+
 			// Votes can only be cast during the voting phase
 			ensure!(Self::get_phase() == Some(ElectionPhase::Voting), <Error<T>>::InvalidPhase);
 
 			// Get the ballot for the voter
 			let ballot = Self::ballots(voter).ok_or(<Error<T>>::BallotNotFound)?;
-			// TODO: increment the nonce in the ballot
 
 			// Change the ballot
 			<Ballots<T>>::insert(

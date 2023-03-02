@@ -117,6 +117,19 @@ pub mod pallet {
 		}
 	}
 
+	#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, TypeInfo)]
+	pub struct Ballot {
+		pub voter_id: u64,
+		pub commitment: Vec<u8>,
+		pub signature: Vec<u8>,
+	}
+	/// Todo: determine maximum length of struct storage
+	impl MaxEncodedLen for Ballot {
+		fn max_encoded_len() -> usize {
+			usize::MAX - 1
+		}
+	}
+
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
@@ -149,6 +162,10 @@ pub mod pallet {
 	#[pallet::getter(fn voter_count)]
 	pub type VoterCount<T: Config> = StorageValue<_, u64, OptionQuery>;
 
+	#[pallet::storage]
+	#[pallet::getter(fn ballots)]
+	pub type Ballots<T: Config> = StorageMap<_, Twox64Concat, u64, Ballot, OptionQuery>;
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
@@ -170,6 +187,10 @@ pub mod pallet {
 		InvalidPhase,
 		/// Bad Sender
 		BadSender,
+		// Ballot already exists
+		BallotAlreadyExists,
+		// Ballot does not exist
+		BallotNotFound,
 	}
 
 	#[pallet::call]
@@ -259,6 +280,66 @@ pub mod pallet {
 
 			Ok(())
 		}
+
+		#[pallet::weight(10_000 + T::DbWeight::get().writes(1).ref_time())]
+		#[pallet::call_index(3)]
+		pub fn vote(
+			_origin: OriginFor<T>,
+			voter: u64,
+			commitment: Vec<u8>,
+			signature: Vec<u8>,
+		) -> DispatchResult {
+			// TODO: make sure that it is signed by the voter
+
+			// Votes can only be cast during the voting phase
+			ensure!(
+				Self::get_phase() == Some(ElectionPhase::Voting),
+				<Error<T>>::InvalidPhase
+			);
+
+			// Ensure that the ballot does not already exist
+			ensure!(
+				<Ballots<T>>::get(voter).is_none(),
+				<Error<T>>::BallotAlreadyExists
+			);
+
+			// Add the ballot
+			<Ballots<T>>::insert(
+				voter,
+				Ballot { voter_id: voter, commitment, signature },
+			);
+
+			Ok(())
+		}
+
+		#[pallet::weight(10_000 + T::DbWeight::get().writes(1).ref_time())]
+		#[pallet::call_index(4)]
+		pub fn change_vote(
+			_origin: OriginFor<T>,
+			voter: u64,
+			commitment: Vec<u8>,
+			signature: Vec<u8>,
+		) -> DispatchResult {
+			// TODO: make sure that it is signed by the voter
+
+			// Votes can only be cast during the voting phase
+			ensure!(
+				Self::get_phase() == Some(ElectionPhase::Voting),
+				<Error<T>>::InvalidPhase
+			);
+
+			// Get the ballot for the voter
+			let _ballot = Self::ballots(voter).ok_or(<Error<T>>::BallotNotFound)?;
+			// TODO: increment the nonce in the ballot
+
+			// Change the ballot
+			<Ballots<T>>::insert(
+				voter,
+				Ballot { voter_id: voter, commitment, signature },
+			);
+
+			Ok(())
+		}
 	}
 
 	impl<T: Config> Pallet<T> {
@@ -272,6 +353,10 @@ pub mod pallet {
 
 		pub fn get_candidate(candidate: T::AccountId) -> Option<Candidate> {
 			<Candidates<T>>::get(candidate)
+		}
+
+		pub fn get_ballot(voter: u64) -> Option<Ballot> {
+			<Ballots<T>>::get(voter)
 		}
 	}
 }

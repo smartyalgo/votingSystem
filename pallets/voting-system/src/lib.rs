@@ -122,6 +122,7 @@ pub mod pallet {
 		pub voter_id: u64,
 		pub commitment: Vec<u8>,
 		pub signature: Vec<u8>,
+		pub nonce: u64,
 	}
 	/// Todo: determine maximum length of struct storage
 	impl MaxEncodedLen for Ballot {
@@ -156,7 +157,15 @@ pub mod pallet {
 
 	#[pallet::storage]
 	#[pallet::getter(fn blinded_signatures)]
-	pub type BlindedSignatures<T: Config> = StorageDoubleMap<_, Twox64Concat, u64, Twox64Concat, T::AccountId, BoundedVec<u8, T::SignatureLength>, OptionQuery>;
+	pub type BlindedSignatures<T: Config> = StorageDoubleMap<
+		_,
+		Twox64Concat,
+		u64,
+		Twox64Concat,
+		T::AccountId,
+		BoundedVec<u8, T::SignatureLength>,
+		OptionQuery,
+	>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn voter_count)]
@@ -292,21 +301,15 @@ pub mod pallet {
 			// TODO: make sure that it is signed by the voter
 
 			// Votes can only be cast during the voting phase
-			ensure!(
-				Self::get_phase() == Some(ElectionPhase::Voting),
-				<Error<T>>::InvalidPhase
-			);
+			ensure!(Self::get_phase() == Some(ElectionPhase::Voting), <Error<T>>::InvalidPhase);
 
 			// Ensure that the ballot does not already exist
-			ensure!(
-				<Ballots<T>>::get(voter).is_none(),
-				<Error<T>>::BallotAlreadyExists
-			);
+			ensure!(<Ballots<T>>::get(voter).is_none(), <Error<T>>::BallotAlreadyExists);
 
 			// Add the ballot
 			<Ballots<T>>::insert(
 				voter,
-				Ballot { voter_id: voter, commitment, signature },
+				Ballot { voter_id: voter, commitment, signature, nonce: 1 },
 			);
 
 			Ok(())
@@ -323,19 +326,16 @@ pub mod pallet {
 			// TODO: make sure that it is signed by the voter
 
 			// Votes can only be cast during the voting phase
-			ensure!(
-				Self::get_phase() == Some(ElectionPhase::Voting),
-				<Error<T>>::InvalidPhase
-			);
+			ensure!(Self::get_phase() == Some(ElectionPhase::Voting), <Error<T>>::InvalidPhase);
 
 			// Get the ballot for the voter
-			let _ballot = Self::ballots(voter).ok_or(<Error<T>>::BallotNotFound)?;
+			let ballot = Self::ballots(voter).ok_or(<Error<T>>::BallotNotFound)?;
 			// TODO: increment the nonce in the ballot
 
 			// Change the ballot
 			<Ballots<T>>::insert(
 				voter,
-				Ballot { voter_id: voter, commitment, signature },
+				Ballot { voter_id: voter, commitment, signature, nonce: ballot.nonce + 1 },
 			);
 
 			Ok(())
@@ -343,6 +343,10 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
+		pub fn get_ca() -> Option<T::AccountId> {
+			<CentralAuthority<T>>::get()
+		}
+
 		pub fn get_phase() -> Option<ElectionPhase> {
 			<Phase<T>>::get()
 		}

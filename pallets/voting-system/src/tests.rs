@@ -46,6 +46,7 @@ fn can_add_voter() {
 		let blinded_pubkey = vec![1, 2, 3];
 		let signed_blinded_pubkey = vec![4, 5, 6];
 		let is_eligible = true;
+		let personal_data_hash = vec![7, 8, 9];
 
 		// when
 		System::set_block_number(1);
@@ -55,13 +56,14 @@ fn can_add_voter() {
 			voter,
 			blinded_pubkey.clone(),
 			signed_blinded_pubkey.clone(),
+			personal_data_hash.clone(),
 			is_eligible
 		));
 
 		// then
 		assert_eq!(
 			VotingSystem::voters(voter),
-			Some(Voter { blinded_pubkey, signed_blinded_pubkey, is_eligible })
+			Some(Voter { blinded_pubkey, signed_blinded_pubkey, is_eligible, personal_data_hash })
 		);
 	})
 }

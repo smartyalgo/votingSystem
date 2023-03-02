@@ -89,7 +89,7 @@ pub mod pallet {
 				BiasedSigner => Voting,
 				Voting => Counting,
 				Counting => Completed,
-				_ => None,
+				Completed => Completed,
 			}
 		}
 	}
@@ -101,6 +101,7 @@ pub mod pallet {
 		pub is_eligible: bool,
 		// Signed by CA after verifying eligibility
 		pub signed_blinded_pubkey: Vec<u8>,
+		pub personal_data_hash: Vec<u8>
 	}
 
 	/// Todo: determine maximum length of struct storage
@@ -133,7 +134,10 @@ pub mod pallet {
 
 	#[pallet::storage]
 	#[pallet::getter(fn ca)]
+	// TODO: Change to Super User for controlling the phases
 	pub type CentralAuthority<T: Config> = StorageValue<_, T::AccountId, OptionQuery>;
+
+	// TODO: Add array of Registers for registering voters
 
 	#[pallet::storage]
 	#[pallet::getter(fn phase)]
@@ -204,8 +208,9 @@ pub mod pallet {
 			}
 
 			// Update the phase
+			// TODO: Refactor this section
 			let new_phase = Self::phase().expect("REASON").increment();
-			<Phase<T>>::put(new_phase.clone());
+			Phase::<T>::put(new_phase.clone());
 
 			// Emit event
 			Self::deposit_event(Event::PhaseChanged {
@@ -215,22 +220,26 @@ pub mod pallet {
 
 			Ok(())
 		}
-
+		
+		// TODO: After system is working, experiment with removing or changing value to 0
 		#[pallet::weight(10_000 + T::DbWeight::get().writes(1).ref_time())]
 		#[pallet::call_index(1)]
 		pub fn add_voter(
 			origin: OriginFor<T>,
 			blinded_pubkey: Vec<u8>,
 			signed_blinded_pubkey: Vec<u8>,
+			personal_data_hash: Vec<u8>,
 			is_eligible: bool,
 		) -> DispatchResult {
 			// make sure that it is signed by the CA
 			let sender = ensure_signed(origin)?;
+			// TODO: Change this to be a valid register
 			let ca = Self::ca();
 			if let Some(ca) = ca {
 				ensure!(sender == ca, <Error<T>>::SenderNotCA);
 			} else {
 				// if CA is not set, return error
+				// TODO: Change to Incorrect Configuration
 				return Err(Error::<T>::InternalError.into());
 			}
 
@@ -246,8 +255,8 @@ pub mod pallet {
 
 			// Update the phase
 			<Voters<T>>::insert(
-				voter_index,
-				Voter { id: voter_index, blinded_pubkey, is_eligible, signed_blinded_pubkey },
+				voter,
+				Voter { blinded_pubkey, is_eligible, signed_blinded_pubkey, personal_data_hash },
 			);
 			VoterCount::<T>::put(voter_index);
 

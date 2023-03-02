@@ -71,16 +71,21 @@ fn can_update_candidate() {
 		// with
 		let candidate = 2;
 		let name = "candidate 1";
+		let pubkey: Vec<u8> = vec![1, 2, 3];
 
 		// when
 		System::set_block_number(1);
 		assert_ok!(VotingSystem::update_candidate_info(
 			RuntimeOrigin::signed(candidate),
 			candidate,
-			name.to_string()
+			name.to_string(),
+			pubkey
 		));
 
 		// then
-		assert_eq!(VotingSystem::get_candidate(candidate), Some(Candidate { name: name.to_string() }));
+		assert_eq!(
+			VotingSystem::get_candidate(candidate),
+			Some(Candidate { name: name.to_string(), pubkey })
+		);
 	})
 }

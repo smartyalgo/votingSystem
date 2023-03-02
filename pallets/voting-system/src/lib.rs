@@ -43,7 +43,10 @@ pub mod pallet {
 			}
 			for candidate in &self.candidates {
 				// pubkey with place holder
-				Candidates::<T>::insert(candidate, Candidate { name: "".to_string(), pubkey: Vec::new() });
+				Candidates::<T>::insert(
+					candidate,
+					Candidate { name: "".to_string(), pubkey: Vec::new() },
+				);
 			}
 		}
 	}
@@ -97,7 +100,7 @@ pub mod pallet {
 		pub blinded_pubkey: Vec<u8>,
 		pub is_eligible: bool,
 		// Signed by CA after verifying eligibility
-		pub signed_blinded_pubkey: Vec<u8>, 
+		pub signed_blinded_pubkey: Vec<u8>,
 	}
 
 	/// Todo: determine maximum length of struct storage
@@ -110,6 +113,7 @@ pub mod pallet {
 	#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, TypeInfo)]
 	pub struct Candidate {
 		pub name: String,
+		// RSA Key
 		pub pubkey: Vec<u8>,
 	}
 
@@ -145,8 +149,16 @@ pub mod pallet {
 	pub type Voters<T: Config> = StorageMap<_, Twox64Concat, u64, Voter, OptionQuery>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn blinded_signatures)]
-	pub type BlindedSignatures<T: Config> = StorageDoubleMap<_, Twox64Concat, u64, Twox64Concat, T::AccountId, BoundedVec<u8, T::SignatureLength>, OptionQuery>;
+	#[pallet::getter(fn blinded_signatures)] // (voter_id, candidate_id) -> signature
+	pub type BlindedSignatures<T: Config> = StorageDoubleMap<
+		_,
+		Twox64Concat,
+		u64,
+		Twox64Concat,
+		T::AccountId,
+		BoundedVec<u8, T::SignatureLength>,
+		OptionQuery,
+	>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn voter_count)]
@@ -177,8 +189,6 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-
-
 		#[pallet::weight(10_000 + T::DbWeight::get().writes(1).ref_time())]
 		#[pallet::call_index(0)]
 		pub fn change_phase(origin: OriginFor<T>) -> DispatchResult {
@@ -190,7 +200,7 @@ pub mod pallet {
 				ensure!(sender == ca, <Error<T>>::SenderNotCA);
 			} else {
 				// if CA is not set, return error
-				return Err(Error::<T>::InternalError.into())
+				return Err(Error::<T>::InternalError.into());
 			}
 
 			// Update the phase
@@ -221,7 +231,7 @@ pub mod pallet {
 				ensure!(sender == ca, <Error<T>>::SenderNotCA);
 			} else {
 				// if CA is not set, return error
-				return Err(Error::<T>::InternalError.into())
+				return Err(Error::<T>::InternalError.into());
 			}
 
 			// Voters can only be added during the registration phase
@@ -258,6 +268,24 @@ pub mod pallet {
 
 			// Update candidate info
 			<Candidates<T>>::insert(candidate, Candidate { name, pubkey });
+
+			Ok(())
+		}
+
+		#[pallet::weight(10_000 + T::DbWeight::get().writes(1).ref_time())]
+		#[pallet::call_index(3)]
+		pub fn biased_signing(
+			origin: OriginFor<T>,
+			candidate: T::AccountId,
+			voter: u64,
+			blinded_signature: BoundedVec<u8, T::SignatureLength>,
+		) -> DispatchResult {
+			// make sure that it is signed by the CA
+			let sender = ensure_signed(origin)?;
+			ensure!(sender == candidate, <Error<T>>::BadSender);
+
+			// Write to BlindedSignature
+			<BlindedSignatures<T>>::insert(voter, candidate, blinded_signature);
 
 			Ok(())
 		}

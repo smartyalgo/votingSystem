@@ -22,15 +22,17 @@ fn e2e() {
 		let blinded_pubkey = vec![1, 2, 3];
 		let signed_blinded_pubkey = vec![4, 5, 6];
 		let is_eligible = true;
+		let personal_data_hash = vec![7, 8, 9];
 		assert_ok!(VotingSystem::add_voter(
 			RuntimeOrigin::signed(ca),
 			blinded_pubkey.clone(),
 			signed_blinded_pubkey.clone(),
+			personal_data_hash.clone(),
 			is_eligible
 		));
 		assert_eq!(
 			VotingSystem::voters(1),
-			Some(Voter { id: 1, blinded_pubkey, signed_blinded_pubkey, is_eligible })
+			Some(Voter { id: 1, blinded_pubkey, signed_blinded_pubkey, is_eligible, personal_data_hash })
 		);
 		assert_ok!(VotingSystem::change_phase(RuntimeOrigin::signed(ca)));
 
@@ -173,6 +175,7 @@ fn can_vote() {
 		let blinded_pubkey = vec![1, 2, 3];
 		let signed_blinded_pubkey = vec![4, 5, 6];
 		let is_eligible = true;
+		let personal_data_hash = vec![7, 8, 9];
 		let commitment = vec![1, 2, 3];
 		let signature = vec![4, 5, 6];
 
@@ -183,7 +186,8 @@ fn can_vote() {
 			RuntimeOrigin::signed(ca),
 			blinded_pubkey.clone(),
 			signed_blinded_pubkey.clone(),
-			is_eligible
+			personal_data_hash,
+			is_eligible,
 		));
 		assert_ok!(VotingSystem::change_phase(RuntimeOrigin::signed(ca)));
 		assert_ok!(VotingSystem::change_phase(RuntimeOrigin::signed(ca)));
@@ -214,6 +218,7 @@ pub fn can_change_vote() {
 		let is_eligible = true;
 		let commitment = vec![1, 2, 3];
 		let signature = vec![4, 5, 6];
+		let personal_data_hash = vec![7, 8, 9];
 
 		// when
 		System::set_block_number(1);
@@ -222,6 +227,7 @@ pub fn can_change_vote() {
 			RuntimeOrigin::signed(ca),
 			blinded_pubkey.clone(),
 			signed_blinded_pubkey.clone(),
+			personal_data_hash,
 			is_eligible
 		));
 		assert_ok!(VotingSystem::change_phase(RuntimeOrigin::signed(ca)));

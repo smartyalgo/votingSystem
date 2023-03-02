@@ -96,7 +96,6 @@ pub mod pallet {
 
 	#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, TypeInfo)]
 	pub struct Voter {
-		pub id: u64,
 		pub blinded_pubkey: Vec<u8>,
 		pub is_eligible: bool,
 		// Signed by CA after verifying eligibility
@@ -150,7 +149,7 @@ pub mod pallet {
 
 	#[pallet::storage]
 	#[pallet::getter(fn voters)]
-	pub type Voters<T: Config> = StorageMap<_, Twox64Concat, u64, Voter, OptionQuery>;
+	pub type Voters<T: Config> = StorageMap<_, Twox64Concat, T::AccountId, Voter, OptionQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn blinded_signatures)] // (voter_id, candidate_id) -> signature
@@ -226,6 +225,7 @@ pub mod pallet {
 		#[pallet::call_index(1)]
 		pub fn add_voter(
 			origin: OriginFor<T>,
+			voter: T::AccountId,
 			blinded_pubkey: Vec<u8>,
 			signed_blinded_pubkey: Vec<u8>,
 			personal_data_hash: Vec<u8>,
@@ -305,7 +305,7 @@ pub mod pallet {
 			<Phase<T>>::get()
 		}
 
-		pub fn get_voter(voter: u64) -> Option<Voter> {
+		pub fn get_voter(voter: T::AccountId) -> Option<Voter> {
 			<Voters<T>>::get(voter)
 		}
 

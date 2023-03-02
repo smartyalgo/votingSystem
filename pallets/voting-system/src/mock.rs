@@ -51,6 +51,7 @@ impl system::Config for Test {
 
 impl pallet_voting_system::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
+	type SignatureLength = ();
 }
 
 // Build genesis storage according to the mock runtime.

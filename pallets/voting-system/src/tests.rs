@@ -79,7 +79,7 @@ fn can_update_candidate() {
 			RuntimeOrigin::signed(candidate),
 			candidate,
 			name.to_string(),
-			pubkey
+			pubkey.clone()
 		));
 
 		// then

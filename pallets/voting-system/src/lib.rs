@@ -42,7 +42,8 @@ pub mod pallet {
 				CentralAuthority::<T>::put(ca);
 			}
 			for candidate in &self.candidates {
-				Candidates::<T>::insert(candidate, Candidate { name: "".to_string() });
+				// pubkey with place holder
+				Candidates::<T>::insert(candidate, Candidate { name: "".to_string(), pubkey: Vec::new() });
 			}
 		}
 	}
@@ -95,7 +96,8 @@ pub mod pallet {
 		pub id: u64,
 		pub blinded_pubkey: Vec<u8>,
 		pub is_eligible: bool,
-		pub signed_blinded_pubkey: Vec<u8>,
+		// Signed by CA after verifying eligibility
+		pub signed_blinded_pubkey: Vec<u8>, 
 	}
 
 	/// Todo: determine maximum length of struct storage
@@ -108,6 +110,7 @@ pub mod pallet {
 	#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, TypeInfo)]
 	pub struct Candidate {
 		pub name: String,
+		pub pubkey: Vec<u8>,
 	}
 
 	/// Todo: determine maximum length of struct storage
@@ -174,9 +177,7 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		// fn verify_change_to_registration(origin: <T as Config>::AccountId) -> Option<Error<T>> {
 
-		// }
 
 		#[pallet::weight(10_000 + T::DbWeight::get().writes(1).ref_time())]
 		#[pallet::call_index(0)]
@@ -249,13 +250,14 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			candidate: T::AccountId,
 			name: String,
+			pubkey: Vec<u8>,
 		) -> DispatchResult {
 			// make sure that it is signed by the CA
 			let sender = ensure_signed(origin)?;
 			ensure!(sender == candidate, <Error<T>>::BadSender);
 
 			// Update candidate info
-			<Candidates<T>>::insert(candidate, Candidate { name });
+			<Candidates<T>>::insert(candidate, Candidate { name, pubkey });
 
 			Ok(())
 		}

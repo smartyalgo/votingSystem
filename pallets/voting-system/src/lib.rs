@@ -163,10 +163,6 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		// fn verify_change_to_registration(origin: <T as Config>::AccountId) -> Option<Error<T>> {
-
-		// }
-
 		#[pallet::weight(10_000 + T::DbWeight::get().writes(1).ref_time())]
 		#[pallet::call_index(0)]
 		pub fn change_phase(origin: OriginFor<T>) -> DispatchResult {

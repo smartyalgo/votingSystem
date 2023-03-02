@@ -42,7 +42,6 @@ fn can_add_voter() {
 	new_test_ext(root_key).execute_with(|| {
 		// with
 		let ca = root_key;
-		let voter = 2;
 		let blinded_pubkey = vec![1, 2, 3];
 		let signed_blinded_pubkey = vec![4, 5, 6];
 		let is_eligible = true;
@@ -52,7 +51,6 @@ fn can_add_voter() {
 		assert_ok!(VotingSystem::change_phase(RuntimeOrigin::signed(ca)));
 		assert_ok!(VotingSystem::add_voter(
 			RuntimeOrigin::signed(ca),
-			voter,
 			blinded_pubkey.clone(),
 			signed_blinded_pubkey.clone(),
 			is_eligible
@@ -60,8 +58,8 @@ fn can_add_voter() {
 
 		// then
 		assert_eq!(
-			VotingSystem::voters(voter),
-			Some(Voter { blinded_pubkey, signed_blinded_pubkey, is_eligible })
+			VotingSystem::voters(1),
+			Some(Voter { id: 1, blinded_pubkey, signed_blinded_pubkey, is_eligible })
 		);
 	})
 }

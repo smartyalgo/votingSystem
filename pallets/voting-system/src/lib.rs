@@ -92,6 +92,7 @@ pub mod pallet {
 
 	#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, TypeInfo)]
 	pub struct Voter {
+		pub id: u64,
 		pub blinded_pubkey: Vec<u8>,
 		pub is_eligible: bool,
 		pub signed_blinded_pubkey: Vec<u8>,
@@ -136,7 +137,11 @@ pub mod pallet {
 
 	#[pallet::storage]
 	#[pallet::getter(fn voters)]
-	pub type Voters<T: Config> = StorageMap<_, Twox64Concat, T::AccountId, Voter, OptionQuery>;
+	pub type Voters<T: Config> = StorageMap<_, Twox64Concat, u64, Voter, OptionQuery>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn voter_count)]
+	pub type VoterCount<T: Config> = StorageValue<_, u64, OptionQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -198,7 +203,6 @@ pub mod pallet {
 		#[pallet::call_index(1)]
 		pub fn add_voter(
 			origin: OriginFor<T>,
-			voter: T::AccountId,
 			blinded_pubkey: Vec<u8>,
 			signed_blinded_pubkey: Vec<u8>,
 			is_eligible: bool,
@@ -219,14 +223,16 @@ pub mod pallet {
 				<Error<T>>::InvalidPhase
 			);
 
-			// If the voter already exists, return error
-			ensure!(!<Voters<T>>::contains_key(&voter), <Error<T>>::VoterAlreadyExists);
+			// Get the voter count
+			let voter_count = Self::voter_count().unwrap_or(0);
+			let voter_index = voter_count + 1;
 
 			// Update the phase
 			<Voters<T>>::insert(
-				voter,
-				Voter { blinded_pubkey, is_eligible, signed_blinded_pubkey },
+				voter_index,
+				Voter { id: voter_index, blinded_pubkey, is_eligible, signed_blinded_pubkey },
 			);
+			VoterCount::<T>::put(voter_index);
 
 			Ok(())
 		}
@@ -254,7 +260,7 @@ pub mod pallet {
 			<Phase<T>>::get()
 		}
 
-		pub fn get_voter(voter: T::AccountId) -> Option<Voter> {
+		pub fn get_voter(voter: u64) -> Option<Voter> {
 			<Voters<T>>::get(voter)
 		}
 

@@ -273,9 +273,14 @@ impl pallet_sudo::Config for Runtime {
 	type RuntimeCall = RuntimeCall;
 }
 
+parameter_types! {
+	pub const SignatureLength: u32 = 32;
+}
+
 /// Configure the pallet-template in pallets/template.
 impl pallet_voting_system::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
+	type SignatureLength = SignatureLength;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.

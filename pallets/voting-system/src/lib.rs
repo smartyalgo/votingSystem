@@ -120,6 +120,8 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+		#[pallet::constant]
+		type SignatureLength: Get<u32>;
 	}
 
 	#[pallet::storage]
@@ -138,6 +140,10 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn voters)]
 	pub type Voters<T: Config> = StorageMap<_, Twox64Concat, u64, Voter, OptionQuery>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn blinded_signatures)]
+	pub type BlindedSignatures<T: Config> = StorageDoubleMap<_, Twox64Concat, u64, Twox64Concat, T::AccountId, BoundedVec<u8, T::SignatureLength>, OptionQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn voter_count)]

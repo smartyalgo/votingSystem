@@ -280,7 +280,7 @@ pub mod pallet {
 			voter: u64,
 			blinded_signature: BoundedVec<u8, T::SignatureLength>,
 		) -> DispatchResult {
-			// make sure that it is signed by the CA
+			// make sure that it is signed by the candidate
 			let sender = ensure_signed(origin)?;
 			ensure!(sender == candidate, <Error<T>>::BadSender);
 

@@ -83,6 +83,9 @@ fn can_update_candidate() {
 		));
 
 		// then
-		assert_eq!(VotingSystem::get_candidate(candidate), Some(Candidate { name: name.to_string() }));
+		assert_eq!(
+			VotingSystem::get_candidate(candidate),
+			Some(Candidate { name: name.to_string() })
+		);
 	})
 }

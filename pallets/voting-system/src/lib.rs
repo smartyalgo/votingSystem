@@ -174,7 +174,7 @@ pub mod pallet {
 				ensure!(sender == ca, <Error<T>>::SenderNotCA);
 			} else {
 				// if CA is not set, return error
-				return Err(Error::<T>::InternalError.into())
+				return Err(Error::<T>::InternalError.into());
 			}
 
 			// Update the phase
@@ -206,7 +206,7 @@ pub mod pallet {
 				ensure!(sender == ca, <Error<T>>::SenderNotCA);
 			} else {
 				// if CA is not set, return error
-				return Err(Error::<T>::InternalError.into())
+				return Err(Error::<T>::InternalError.into());
 			}
 
 			// Voters can only be added during the registration phase

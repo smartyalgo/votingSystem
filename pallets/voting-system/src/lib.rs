@@ -85,7 +85,7 @@ pub mod pallet {
 				BiasedSigner => Voting,
 				Voting => Counting,
 				Counting => Completed,
-				_ => None,
+				Completed => Completed,
 			}
 		}
 	}
@@ -96,6 +96,7 @@ pub mod pallet {
 		pub blinded_pubkey: Vec<u8>,
 		pub is_eligible: bool,
 		pub signed_blinded_pubkey: Vec<u8>,
+		pub personal_data_hash: Vec<u8>
 	}
 
 	/// Todo: determine maximum length of struct storage
@@ -141,7 +142,10 @@ pub mod pallet {
 
 	#[pallet::storage]
 	#[pallet::getter(fn ca)]
+	// TODO: Change to Super User for controlling the phases
 	pub type CentralAuthority<T: Config> = StorageValue<_, T::AccountId, OptionQuery>;
+
+	// TODO: Add array of Registers for registering voters
 
 	#[pallet::storage]
 	#[pallet::getter(fn phase)]
@@ -206,10 +210,6 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		// fn verify_change_to_registration(origin: <T as Config>::AccountId) -> Option<Error<T>> {
-
-		// }
-
 		#[pallet::weight(10_000 + T::DbWeight::get().writes(1).ref_time())]
 		#[pallet::call_index(0)]
 		pub fn change_phase(origin: OriginFor<T>) -> DispatchResult {
@@ -221,12 +221,13 @@ pub mod pallet {
 				ensure!(sender == ca, <Error<T>>::SenderNotCA);
 			} else {
 				// if CA is not set, return error
-				return Err(Error::<T>::InternalError.into())
+				return Err(Error::<T>::InternalError.into());
 			}
 
 			// Update the phase
+			// TODO: Refactor this section
 			let new_phase = Self::phase().expect("REASON").increment();
-			<Phase<T>>::put(new_phase.clone());
+			Phase::<T>::put(new_phase.clone());
 
 			// Emit event
 			Self::deposit_event(Event::PhaseChanged {
@@ -237,22 +238,26 @@ pub mod pallet {
 			Ok(())
 		}
 
+		// TODO: After system is working, experiment with removing or changing value to 0
 		#[pallet::weight(10_000 + T::DbWeight::get().writes(1).ref_time())]
 		#[pallet::call_index(1)]
 		pub fn add_voter(
 			origin: OriginFor<T>,
 			blinded_pubkey: Vec<u8>,
 			signed_blinded_pubkey: Vec<u8>,
+			personal_data_hash: Vec<u8>,
 			is_eligible: bool,
 		) -> DispatchResult {
 			// make sure that it is signed by the CA
 			let sender = ensure_signed(origin)?;
+			// TODO: Change this to be a valid register
 			let ca = Self::ca();
 			if let Some(ca) = ca {
 				ensure!(sender == ca, <Error<T>>::SenderNotCA);
 			} else {
 				// if CA is not set, return error
-				return Err(Error::<T>::InternalError.into())
+				// TODO: Change to Incorrect Configuration
+				return Err(Error::<T>::InternalError.into());
 			}
 
 			// Voters can only be added during the registration phase
@@ -268,7 +273,7 @@ pub mod pallet {
 			// Update the phase
 			<Voters<T>>::insert(
 				voter_index,
-				Voter { id: voter_index, blinded_pubkey, is_eligible, signed_blinded_pubkey },
+				Voter { id: voter_index, blinded_pubkey, is_eligible, signed_blinded_pubkey, personal_data_hash },
 			);
 			VoterCount::<T>::put(voter_index);
 

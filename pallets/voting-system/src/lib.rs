@@ -12,7 +12,7 @@ mod benchmarking;
 
 #[frame_support::pallet]
 pub mod pallet {
-	use frame_support::{inherent::Vec, pallet_prelude::*};
+	use frame_support::{inherent::Vec, pallet_prelude::*, traits::ValidatorRegistration};
 	use frame_system::pallet_prelude::*;
 	use scale_info::prelude::string::String;
 
@@ -252,7 +252,20 @@ pub mod pallet {
 				ensure!(sender == ca, <Error<T>>::SenderNotCA);
 			} else {
 				// if CA is not set, return error
-				return Err(Error::<T>::InternalError.into())
+				return Err(Error::<T>::InternalError.into());
+			}
+
+			let current_phase = Self::phase();
+			match Some(current_phase) {
+				ElectionPhase::Registration => {
+					// Check if there exist voter with incomplete signature
+				},
+				ElectionPhase::BiasedSigner => {
+					// Check if there exist voter with incomplete signature
+					if (false) {
+						return Err(Error::<T>::InvalidPhaseChange.into());
+					}
+				},
 			}
 
 			// Update the phase
@@ -288,7 +301,7 @@ pub mod pallet {
 			} else {
 				// if CA is not set, return error
 				// TODO: Change to Incorrect Configuration
-				return Err(Error::<T>::InternalError.into())
+				return Err(Error::<T>::InternalError.into());
 			}
 
 			// Voters can only be added during the registration phase

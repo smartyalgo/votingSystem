@@ -1,6 +1,6 @@
 use crate::{
 	mock::*,
-	Ballot, Candidate,
+	Ballot, BallotKey, Candidate,
 	ElectionPhase::{Initialization, Registration},
 	Error, Event, Voter,
 };
@@ -64,8 +64,14 @@ fn e2e() {
 			VotingSystem::get_ballot(voter),
 			Some(Ballot { commitment: new_commitment, signature: new_signature, nonce: 2 })
 		);
+		assert_ok!(VotingSystem::change_phase(RuntimeOrigin::signed(ca)));
 
 		// TODO: Counting phase
+		assert_ok!(VotingSystem::reveal_ballot_key(RuntimeOrigin::signed(ca), vec![1, 2, 3]));
+		assert_eq!(
+			VotingSystem::get_ballot_key(),
+			Some(BallotKey { public: vec![1, 2, 3], private: vec![1, 2, 3] })
+		)
 	})
 }
 
@@ -259,13 +265,13 @@ fn can_biased_signing() {
 	let root_key = 1;
 	new_test_ext(root_key).execute_with(|| {
 		// with
-		let candidate = 2;
-		let voter: u64 = 15;
+		// let candidate = 2;
+		// let voter: u64 = 15;
 		// let pubkey: Vec<u8> = vec![1, 2, 3];
 		// let blinded_signature: BoundedVec<u8, Get<u32>> = vec![1, 2, 3];
 
 		// when
-		System::set_block_number(1);
+		// System::set_block_number(1);
 		// assert_ok!(VotingSystem::biased_signing(
 		// 	RuntimeOrigin::signed(candidate),
 		// 	candidate,
@@ -278,5 +284,30 @@ fn can_biased_signing() {
 		// 	VotingSystem::get_candidate(candidate),
 		// 	Some(Candidate { name: name.to_string(), pubkey })
 		// );
+	})
+}
+
+#[test]
+fn can_reveal_ballot_key() {
+	let root_key = 1;
+	new_test_ext(root_key).execute_with(|| {
+		// with
+		let ca = 1;
+
+		// when
+		System::set_block_number(1);
+
+		// change phase to counting
+		assert_ok!(VotingSystem::change_phase(RuntimeOrigin::signed(ca)));
+		assert_ok!(VotingSystem::change_phase(RuntimeOrigin::signed(ca)));
+		assert_ok!(VotingSystem::change_phase(RuntimeOrigin::signed(ca)));
+		assert_ok!(VotingSystem::change_phase(RuntimeOrigin::signed(ca)));
+
+		// then reveal ballot key
+		assert_ok!(VotingSystem::reveal_ballot_key(RuntimeOrigin::signed(ca), vec![1, 2, 3]));
+		assert_eq!(
+			VotingSystem::get_ballot_key(),
+			Some(BallotKey { public: vec![1, 2, 3], private: vec![1, 2, 3] })
+		)
 	})
 }

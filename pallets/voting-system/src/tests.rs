@@ -55,7 +55,7 @@ fn e2e() {
 
 		let new_commitment = vec![1, 2, 3, 4];
 		let new_signature = vec![4, 5, 6, 7];
-		assert_ok!(VotingSystem::change_vote(
+		assert_ok!(VotingSystem::vote(
 			RuntimeOrigin::signed(voter),
 			new_commitment.clone(),
 			new_signature.clone()
@@ -246,7 +246,7 @@ pub fn can_change_vote() {
 		// then change vote
 		let new_commitment = vec![1, 2, 3, 4];
 		let new_signature = vec![4, 5, 6, 7];
-		assert_ok!(VotingSystem::change_vote(
+		assert_ok!(VotingSystem::vote(
 			RuntimeOrigin::signed(voter),
 			new_commitment.clone(),
 			new_signature.clone()

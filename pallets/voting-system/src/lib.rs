@@ -20,59 +20,6 @@ pub mod pallet {
 	#[pallet::generate_store(pub(super) trait Store)]
 	pub struct Pallet<T>(_);
 
-	#[pallet::genesis_config]
-	pub struct GenesisConfig<T: Config> {
-		pub central_authority: Option<T::AccountId>,
-		pub candidates: Vec<T::AccountId>,
-		pub ballot_public_key: Vec<u8>,
-	}
-
-	#[cfg(feature = "std")]
-	impl<T: Config> Default for GenesisConfig<T> {
-		fn default() -> Self {
-			Self { central_authority: None, candidates: Vec::new(), ballot_public_key: Vec::new() }
-		}
-	}
-
-	#[pallet::genesis_build]
-	impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
-		fn build(&self) {
-			Phase::<T>::put(ElectionPhase::Initialization);
-
-			if let Some(ref ca) = self.central_authority {
-				CentralAuthority::<T>::put(ca);
-			}
-
-			let pubkey = &self.ballot_public_key;
-			BallotKeys::<T>::put(BallotKey { public: pubkey.clone(), private: Vec::new() });
-
-			for candidate in &self.candidates {
-				// pubkey with place holder
-				Candidates::<T>::insert(
-					candidate,
-					Candidate { name: "".to_string(), pubkey: Vec::new() },
-				);
-			}
-		}
-	}
-
-	#[cfg(feature = "std")]
-	impl<T: Config> GenesisConfig<T> {
-		/// Direct implementation of `GenesisBuild::build_storage`.
-		///
-		/// Kept in order not to break dependency.
-		pub fn build_storage(&self) -> Result<sp_runtime::Storage, String> {
-			<Self as GenesisBuild<T>>::build_storage(self)
-		}
-
-		/// Direct implementation of `GenesisBuild::assimilate_storage`.
-		///
-		/// Kept in order not to break dependency.
-		pub fn assimilate_storage(&self, storage: &mut sp_runtime::Storage) -> Result<(), String> {
-			<Self as GenesisBuild<T>>::assimilate_storage(self, storage)
-		}
-	}
-
 	#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 	pub enum ElectionPhase {
 		None,
@@ -232,9 +179,69 @@ pub mod pallet {
 		BallotNotFound,
 	}
 
+	#[pallet::genesis_config]
+	pub struct GenesisConfig<T: Config> {
+		pub central_authority: Option<T::AccountId>,
+		pub candidates: Vec<T::AccountId>,
+		pub ballot_public_key: Vec<u8>,
+	}
+
+	#[cfg(feature = "std")]
+	impl<T: Config> Default for GenesisConfig<T> {
+		fn default() -> Self {
+			Self { central_authority: None, candidates: Vec::new(), ballot_public_key: Vec::new() }
+		}
+	}
+
+	#[pallet::genesis_build]
+	impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
+		fn build(&self) {
+			Phase::<T>::put(ElectionPhase::Initialization);
+
+			if let Some(ref ca) = self.central_authority {
+				CentralAuthority::<T>::put(ca);
+			}
+
+			let pubkey = &self.ballot_public_key;
+			if pubkey.len() == 0 {
+				panic!("Ballot public key is empty");
+			}
+
+			BallotKeys::<T>::put(BallotKey { public: pubkey.clone(), private: Vec::new() });
+
+			if self.candidates.len() < 2 {
+				panic!("At least 2 candidates are required");
+			}
+			for candidate in &self.candidates {
+				// pubkey with place holder
+				Candidates::<T>::insert(
+					candidate,
+					Candidate { name: "".to_string(), pubkey: Vec::new() },
+				);
+			}
+		}
+	}
+
+	#[cfg(feature = "std")]
+	impl<T: Config> GenesisConfig<T> {
+		/// Direct implementation of `GenesisBuild::build_storage`.
+		///
+		/// Kept in order not to break dependency.
+		pub fn build_storage(&self) -> Result<sp_runtime::Storage, String> {
+			<Self as GenesisBuild<T>>::build_storage(self)
+		}
+
+		/// Direct implementation of `GenesisBuild::assimilate_storage`.
+		///
+		/// Kept in order not to break dependency.
+		pub fn assimilate_storage(&self, storage: &mut sp_runtime::Storage) -> Result<(), String> {
+			<Self as GenesisBuild<T>>::assimilate_storage(self, storage)
+		}
+	}
+
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		#[pallet::weight(10_000 + T::DbWeight::get().writes(1).ref_time())]
+		#[pallet::weight(0)]
 		#[pallet::call_index(0)]
 		pub fn change_phase(origin: OriginFor<T>) -> DispatchResult {
 			// make sure that it is signed by the CA
@@ -263,7 +270,7 @@ pub mod pallet {
 		}
 
 		// TODO: After system is working, experiment with removing or changing value to 0
-		#[pallet::weight(10_000 + T::DbWeight::get().writes(1).ref_time())]
+		#[pallet::weight(0)]
 		#[pallet::call_index(1)]
 		pub fn add_voter(
 			origin: OriginFor<T>,
@@ -292,19 +299,19 @@ pub mod pallet {
 
 			// Get the voter count
 			let voter_count = Self::voter_count().unwrap_or(0);
-			let voter_index = voter_count + 1;
+			let new_voter_index = voter_count + 1;
 
-			// Update the phase
+			// Add the voter
 			<Voters<T>>::insert(
-				voter_index,
+				new_voter_index,
 				Voter { blinded_pubkey, is_eligible, signed_blinded_pubkey, personal_data_hash },
 			);
-			VoterCount::<T>::put(voter_index);
+			VoterCount::<T>::put(new_voter_index);
 
 			Ok(())
 		}
 
-		#[pallet::weight(10_000 + T::DbWeight::get().writes(1).ref_time())]
+		#[pallet::weight(0)]
 		#[pallet::call_index(2)]
 		pub fn update_candidate_info(
 			origin: OriginFor<T>,
@@ -312,7 +319,7 @@ pub mod pallet {
 			name: String,
 			pubkey: Vec<u8>,
 		) -> DispatchResult {
-			// make sure that it is signed by the CA
+			// make sure that it is signed by the candidate
 			let sender = ensure_signed(origin)?;
 			ensure!(sender == candidate, <Error<T>>::BadSender);
 
@@ -322,7 +329,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		#[pallet::weight(10_000 + T::DbWeight::get().writes(1).ref_time())]
+		#[pallet::weight(0)]
 		#[pallet::call_index(3)]
 		pub fn biased_signing(
 			origin: OriginFor<T>,
@@ -340,7 +347,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		#[pallet::weight(10_000 + T::DbWeight::get().writes(1).ref_time())]
+		#[pallet::weight(0)]
 		#[pallet::call_index(4)]
 		pub fn vote(
 			origin: OriginFor<T>,
@@ -352,39 +359,19 @@ pub mod pallet {
 			// Votes can only be cast during the voting phase
 			ensure!(Self::get_phase() == Some(ElectionPhase::Voting), <Error<T>>::InvalidPhase);
 
-			// Ensure that the ballot does not already exist
-			ensure!(<Ballots<T>>::get(sender.clone()).is_none(), <Error<T>>::BallotAlreadyExists);
-
-			// Add the ballot
-			<Ballots<T>>::insert(sender, Ballot { commitment, signature, nonce: 1 });
-
-			Ok(())
-		}
-
-		#[pallet::weight(10_000 + T::DbWeight::get().writes(1).ref_time())]
-		#[pallet::call_index(5)]
-		pub fn change_vote(
-			origin: OriginFor<T>,
-			commitment: Vec<u8>,
-			signature: Vec<u8>,
-		) -> DispatchResult {
-			let sender = ensure_signed(origin)?;
-
-			// TODO: make sure that the candidates signatures are valid
-
-			// Votes can only be cast during the voting phase
-			ensure!(Self::get_phase() == Some(ElectionPhase::Voting), <Error<T>>::InvalidPhase);
-
-			// Get the ballot for the voter
-			let ballot = Self::ballots(sender.clone()).ok_or(<Error<T>>::BallotNotFound)?;
-
-			// Change the ballot
-			<Ballots<T>>::insert(sender, Ballot { commitment, signature, nonce: ballot.nonce + 1 });
+			// If the ballot already exists, update the vote
+			if let Some(ballot) = <Ballots<T>>::get(sender.clone()) {
+				// Update the ballot
+				<Ballots<T>>::insert(sender, Ballot { commitment, signature, nonce: ballot.nonce + 1 });
+			} else {
+				// Add the ballot
+				<Ballots<T>>::insert(sender, Ballot { commitment, signature, nonce: 1 });
+			}
 
 			Ok(())
 		}
 
-		#[pallet::weight(10_000 + T::DbWeight::get().writes(1).ref_time())]
+		#[pallet::weight(0)]
 		#[pallet::call_index(6)]
 		pub fn reveal_ballot_key(origin: OriginFor<T>, private_key: Vec<u8>) -> DispatchResult {
 			// make sure that it is signed by the CA

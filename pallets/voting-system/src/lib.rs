@@ -24,12 +24,13 @@ pub mod pallet {
 	pub struct GenesisConfig<T: Config> {
 		pub central_authority: Option<T::AccountId>,
 		pub candidates: Vec<T::AccountId>,
+		pub ballot_public_key: Vec<u8>,
 	}
 
 	#[cfg(feature = "std")]
 	impl<T: Config> Default for GenesisConfig<T> {
 		fn default() -> Self {
-			Self { central_authority: None, candidates: Vec::new() }
+			Self { central_authority: None, candidates: Vec::new(), ballot_public_key: Vec::new() }
 		}
 	}
 
@@ -41,6 +42,10 @@ pub mod pallet {
 			if let Some(ref ca) = self.central_authority {
 				CentralAuthority::<T>::put(ca);
 			}
+
+			let pubkey = &self.ballot_public_key;
+			BallotKeys::<T>::put(BallotKey { public: pubkey.clone(), private: Vec::new() });
+
 			for candidate in &self.candidates {
 				// pubkey with place holder
 				Candidates::<T>::insert(
@@ -137,6 +142,18 @@ pub mod pallet {
 		}
 	}
 
+	#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, TypeInfo)]
+	pub struct BallotKey {
+		pub public: Vec<u8>,
+		pub private: Vec<u8>,
+	}
+	/// Todo: determine maximum length of struct storage
+	impl MaxEncodedLen for BallotKey {
+		fn max_encoded_len() -> usize {
+			usize::MAX - 1
+		}
+	}
+
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
@@ -150,6 +167,10 @@ pub mod pallet {
 	pub type CentralAuthority<T: Config> = StorageValue<_, T::AccountId, OptionQuery>;
 
 	// TODO: Add array of Registers for registering voters
+
+	#[pallet::storage]
+	#[pallet::getter(fn ballot_key)]
+	pub type BallotKeys<T: Config> = StorageValue<_, BallotKey, OptionQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn phase)]
@@ -205,9 +226,9 @@ pub mod pallet {
 		InvalidPhase,
 		/// Bad Sender
 		BadSender,
-		// Ballot already exists
+		/// Ballot already exists
 		BallotAlreadyExists,
-		// Ballot does not exist
+		/// Ballot does not exist
 		BallotNotFound,
 	}
 
@@ -362,6 +383,37 @@ pub mod pallet {
 
 			Ok(())
 		}
+
+		#[pallet::weight(10_000 + T::DbWeight::get().writes(1).ref_time())]
+		#[pallet::call_index(6)]
+		pub fn reveal_ballot_key(origin: OriginFor<T>, private_key: Vec<u8>) -> DispatchResult {
+			// make sure that it is signed by the CA
+			let sender = ensure_signed(origin)?;
+
+			let ca = Self::ca();
+			if let Some(ca) = ca {
+				ensure!(sender == ca, <Error<T>>::SenderNotCA);
+			} else {
+				// if CA is not set, return error
+				return Err(Error::<T>::InternalError.into())
+			}
+
+			// Ballot private key can only be revealed during the counting phase
+			ensure!(Self::get_phase() == Some(ElectionPhase::Counting), <Error<T>>::InvalidPhase);
+
+			let k = BallotKeys::<T>::get();
+			if let Some(mut ballot_key) = k {
+				// Update the ballot key
+				ballot_key.private = private_key;
+				<BallotKeys<T>>::set(Some(ballot_key));
+			} else {
+				return Err(Error::<T>::InternalError.into())
+			}
+
+			// TODO: Open the ballot
+
+			Ok(())
+		}
 	}
 
 	impl<T: Config> Pallet<T> {
@@ -383,6 +435,10 @@ pub mod pallet {
 
 		pub fn get_ballot(voter: T::AccountId) -> Option<Ballot> {
 			<Ballots<T>>::get(voter)
+		}
+
+		pub fn get_ballot_key() -> Option<BallotKey> {
+			BallotKeys::<T>::get()
 		}
 	}
 }

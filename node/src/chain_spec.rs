@@ -128,6 +128,7 @@ fn testnet_genesis(
 		voting_system: VotingSystemConfig {
 			central_authority: Some(root_key),
 			candidates: Vec::new(),
+			ballot_public_key: Vec::new(),
 		},
 	}
 }

@@ -129,6 +129,10 @@ pub mod pallet {
 		StorageMap<_, Twox64Concat, T::AccountId, Candidate, OptionQuery>;
 
 	#[pallet::storage]
+	#[pallet::getter(fn candidates_count)]
+	pub type CandidatesCount<T: Config> = StorageValue<_, u64, OptionQuery>;
+
+	#[pallet::storage]
 	#[pallet::getter(fn voters)]
 	pub type Voters<T: Config> = StorageMap<_, Twox64Concat, u64, Voter, OptionQuery>;
 
@@ -219,6 +223,7 @@ pub mod pallet {
 					Candidate { name: "".to_string(), pubkey: Vec::new() },
 				);
 			}
+			CandidatesCount::<T>::put(self.candidates.len() as u64);
 		}
 	}
 
@@ -255,11 +260,12 @@ pub mod pallet {
 				return Err(Error::<T>::InternalError.into());
 			}
 
+			// Additional phase-specific logic check if current phase can be ended
 			let current_phase = Self::phase();
 			match current_phase {
 				Some(ElectionPhase::BiasedSigner) => {
 					// Check if all the voters has received all blinded signatures from all candidates
-					// Check if there exist voter with incomplete signature
+
 					if (false) {
 						return Err(Error::<T>::InvalidPhaseChange.into());
 					}
@@ -374,7 +380,10 @@ pub mod pallet {
 			// If the ballot already exists, update the vote
 			if let Some(ballot) = <Ballots<T>>::get(sender.clone()) {
 				// Update the ballot
-				<Ballots<T>>::insert(sender, Ballot { commitment, signature, nonce: ballot.nonce + 1 });
+				<Ballots<T>>::insert(
+					sender,
+					Ballot { commitment, signature, nonce: ballot.nonce + 1 },
+				);
 			} else {
 				// Add the ballot
 				<Ballots<T>>::insert(sender, Ballot { commitment, signature, nonce: 1 });
@@ -394,7 +403,7 @@ pub mod pallet {
 				ensure!(sender == ca, <Error<T>>::SenderNotCA);
 			} else {
 				// if CA is not set, return error
-				return Err(Error::<T>::InternalError.into())
+				return Err(Error::<T>::InternalError.into());
 			}
 
 			// Ballot private key can only be revealed during the counting phase
@@ -406,7 +415,7 @@ pub mod pallet {
 				ballot_key.private = private_key;
 				<BallotKeys<T>>::set(Some(ballot_key));
 			} else {
-				return Err(Error::<T>::InternalError.into())
+				return Err(Error::<T>::InternalError.into());
 			}
 
 			// TODO: Open the ballot

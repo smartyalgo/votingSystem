@@ -265,7 +265,15 @@ pub mod pallet {
 			match current_phase {
 				Some(ElectionPhase::BiasedSigner) => {
 					// Check if all the voters has received all blinded signatures from all candidates
+					// For each voter, check if blinded signature array == candidate count
+					let mut voter_index = 1;
+					while Some(voter_index) <= Self::voter_count() {
+						// let voter = Self::get_voter(voter_index);
+						// if let Some(voter) = voter {
 
+						// }
+						voter_index += 1;
+					}
 					if (false) {
 						return Err(Error::<T>::InvalidPhaseChange.into());
 					}

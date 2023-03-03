@@ -256,16 +256,15 @@ pub mod pallet {
 			}
 
 			let current_phase = Self::phase();
-			match Some(current_phase) {
-				ElectionPhase::Registration => {
-					// Check if there exist voter with incomplete signature
-				},
-				ElectionPhase::BiasedSigner => {
+			match current_phase {
+				Some(ElectionPhase::BiasedSigner) => {
+					// Check if all the voters has received all blinded signatures from all candidates
 					// Check if there exist voter with incomplete signature
 					if (false) {
 						return Err(Error::<T>::InvalidPhaseChange.into());
 					}
 				},
+				_ => {},
 			}
 
 			// Update the phase

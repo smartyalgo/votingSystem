@@ -64,8 +64,14 @@ fn e2e() {
 			VotingSystem::get_ballot(voter),
 			Some(Ballot { commitment: new_commitment, signature: new_signature, nonce: 2 })
 		);
+		assert_ok!(VotingSystem::change_phase(RuntimeOrigin::signed(ca)));
 
 		// TODO: Counting phase
+		assert_ok!(VotingSystem::reveal_ballot_key(RuntimeOrigin::signed(ca), vec![1, 2, 3]));
+		assert_eq!(
+			VotingSystem::get_ballot_key(),
+			Some(BallotKey { public: vec![1, 2, 3], private: vec![1, 2, 3] })
+		)
 	})
 }
 

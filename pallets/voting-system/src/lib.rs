@@ -90,10 +90,10 @@ pub mod pallet {
 	}
 	
 	#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, TypeInfo)]
-	pub struct BlindSignature<T> {
+	pub struct BlindSignature {
 		// Candidate Lookup key
 		// TODO: How do we store an account ID here, whats the type?
-		pub acconut: T::AccountId,
+		// pub acconut: T::AccountId,
 		pub signature: Vec<u8>,
 		pub msg_randomizer: Vec<u8>,
 	}
@@ -408,7 +408,7 @@ pub mod pallet {
 		pub fn vote(
 			origin: OriginFor<T>,
 			commitment: Vec<u8>,
-			signature: Vec<BlindSignature<T>>,
+			signature: Vec<(T::AccountId, BlindSignature)>,
 		) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
 
@@ -424,10 +424,10 @@ pub mod pallet {
 			// If the ballot already exists, update the vote
 			if let Some(ballot) = <Ballots<T>>::get(sender.clone()) {
 				// Update the ballot
-				<Ballots<T>>::insert(sender, Ballot { commitment, signature, nonce: ballot.nonce + 1 });
+				<Ballots<T>>::insert(sender, Ballot { commitment, signature: Vec::new(), nonce: ballot.nonce + 1 });
 			} else {
 				// Add the ballot
-				<Ballots<T>>::insert(sender, Ballot { commitment, signature, nonce: 1 });
+				<Ballots<T>>::insert(sender, Ballot { commitment, signature: Vec::new(), nonce: 1 });
 			}
 
 			Ok(())

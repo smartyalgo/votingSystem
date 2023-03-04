@@ -177,7 +177,19 @@ pub mod pallet {
 		BallotAlreadyExists,
 		/// Ballot does not exist
 		BallotNotFound,
+		/// RSA Key Storage not found
+		RSAStorageNotFound,
+		/// Invalid RSA Key in storage
+		RSAError,
 	}
+
+	impl<T> From<blind_rsa_signatures::Error> for Error<T> {
+		fn from(error: blind_rsa_signatures::Error) -> Error<T> {
+			Error::RSAError
+		}
+	}
+
+
 
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
@@ -340,6 +352,14 @@ pub mod pallet {
 			// make sure that it is signed by the candidate
 			let sender = ensure_signed(origin)?;
 			ensure!(sender == candidate, <Error<T>>::BadSender);
+
+			// Fetch the candidates public key
+			let rsa_public: blind_rsa_signatures::PublicKey;
+			if let Some(candidate_struct) = Self::get_candidate(candidate) {
+				rsa_public = blind_rsa_signatures::PublicKey::from_der(candidate_struct.pubkey.as_slice())?;
+			} else {
+				return Err(Error::<T>::RSAStorageNotFound.into());
+			}
 
 			// Write to BlindedSignature
 			<BlindedSignatures<T>>::insert(voter, candidate, blinded_signature);

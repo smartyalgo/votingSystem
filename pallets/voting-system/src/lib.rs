@@ -102,10 +102,9 @@ pub mod pallet {
 	}
 
 	#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, TypeInfo)]
-	pub struct BlindSignature<T> {
+	pub struct BlindSignature {
 		// Candidate Lookup key
 		// TODO: How do we store an account ID here, whats the type?
-		pub acconut: T::AccountId,
 		pub signature: Vec<u8>,
 		pub msg_randomizer: Vec<u8>,
 	}

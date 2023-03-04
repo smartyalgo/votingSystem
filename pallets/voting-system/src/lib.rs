@@ -268,10 +268,16 @@ pub mod pallet {
 					// For each voter, check if blinded signature array == candidate count
 					let mut voter_index = 1;
 					while Some(voter_index) <= Self::voter_count() {
-						// let voter = Self::get_voter(voter_index);
-						// if let Some(voter) = voter {
-
-						// }
+						// Get BlindedSignature(voter_id, candidate)
+						let mut blinded_signature_count: u64 = 0;
+						BlindedSignatures::<T>::iter_prefix(voter_index).for_each(
+							|(candidate, _)| {
+								blinded_signature_count += 1;
+							},
+						);
+						if Some(blinded_signature_count) != Self::candidates_count() {
+							return Err(Error::<T>::InvalidPhaseChange.into());
+						}
 						voter_index += 1;
 					}
 					if (false) {

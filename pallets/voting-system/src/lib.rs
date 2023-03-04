@@ -181,6 +181,8 @@ pub mod pallet {
 		RSAStorageNotFound,
 		/// Invalid RSA Key in storage
 		RSAError,
+		/// Invalid public key
+		InvalidPublicKey
 	}
 
 	impl<T> From<blind_rsa_signatures::Error> for Error<T> {
@@ -355,8 +357,13 @@ pub mod pallet {
 
 			// Fetch the candidates public key
 			let rsa_public: blind_rsa_signatures::PublicKey;
-			if let Some(candidate_struct) = Self::get_candidate(candidate) {
-				rsa_public = blind_rsa_signatures::PublicKey::from_der(candidate_struct.pubkey.as_slice())?;
+			if let Some(candidate_struct) = Self::get_candidate(candidate.clone()) {
+				let res = blind_rsa_signatures::PublicKey::from_der(candidate_struct.pubkey.as_slice());
+				if let Ok(key) = res {
+					rsa_public = key;
+				} else {
+					return Err(Error::<T>::InvalidPublicKey.into());
+				}
 			} else {
 				return Err(Error::<T>::RSAStorageNotFound.into());
 			}

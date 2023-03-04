@@ -260,6 +260,7 @@ pub mod pallet {
 				return Err(Error::<T>::InternalError.into());
 			}
 
+			// TODO: Pull this out into it's own function for testability
 			// Additional phase-specific logic check if current phase can be ended
 			let current_phase = Self::phase();
 			match current_phase {
@@ -271,7 +272,7 @@ pub mod pallet {
 						// Get BlindedSignature(voter_id, candidate)
 						let mut blinded_signature_count: u64 = 0;
 						BlindedSignatures::<T>::iter_prefix(voter_index).for_each(
-							|(candidate, _)| {
+							|(_candidate, _)| {
 								blinded_signature_count += 1;
 							},
 						);
@@ -279,9 +280,6 @@ pub mod pallet {
 							return Err(Error::<T>::InvalidPhaseChange.into());
 						}
 						voter_index += 1;
-					}
-					if (false) {
-						return Err(Error::<T>::InvalidPhaseChange.into());
 					}
 				},
 				_ => {},

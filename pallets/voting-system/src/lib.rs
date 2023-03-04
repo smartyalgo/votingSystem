@@ -79,7 +79,7 @@ pub mod pallet {
 	#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, TypeInfo)]
 	pub struct Ballot {
 		pub commitment: Vec<u8>,
-		pub signature: Vec<u8>,
+		pub signature: Vec<u8>, // TODO: There needs to be one for each candidate
 		pub nonce: u64,
 	}
 	/// Todo: determine maximum length of struct storage
@@ -87,6 +87,14 @@ pub mod pallet {
 		fn max_encoded_len() -> usize {
 			usize::MAX - 1
 		}
+	}
+	
+	#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, TypeInfo)]
+	pub struct BlindSignature {
+		// Candidate Lookup key
+		// TODO: How do we store an account ID here, whats the type?
+		pub signature: Vec<u8>,
+		pub msg_randomizer: Vec<u8>,
 	}
 
 	#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, TypeInfo)]
@@ -167,6 +175,8 @@ pub mod pallet {
 		SenderNotCA,
 		/// Voter already exists
 		VoterAlreadyExists,
+		/// Voter ID is invalid
+		VoterDoesNotExist,
 		/// Invalid phase change
 		InvalidPhaseChange,
 		/// Invalid phase
@@ -177,6 +187,14 @@ pub mod pallet {
 		BallotAlreadyExists,
 		/// Ballot does not exist
 		BallotNotFound,
+		/// RSA Key Storage not found
+		RSAStorageNotFound,
+		/// Invalid RSA Key in storage
+		RSAError,
+		/// Bad Signature from RSA Key
+		RSAInvalidSignature,
+		/// Invalid public key
+		InvalidPublicKey
 	}
 
 	#[pallet::genesis_config]
@@ -341,8 +359,45 @@ pub mod pallet {
 			let sender = ensure_signed(origin)?;
 			ensure!(sender == candidate, <Error<T>>::BadSender);
 
+			// Fetch the voters blinded key to verify the signature
+			let voter_data;
+			
+			match Self::get_voter(voter) {
+				Some(data) => voter_data = data,
+				None => return Err(Error::<T>::VoterDoesNotExist.into()),
+			}
+
+			// Fetch the candidates public key
+			// let rsa_public: blind_rsa_signatures::reexports::rsa::RsaPublicKey;
+			let rsa_public : blind_rsa_signatures::PublicKey;
+			if let Some(candidate_struct) = Self::get_candidate(candidate.clone()) {
+				// let res = blind_rsa_signatures::reexports::rsa::RsaPublicKey::from_public_key_der(candidate_struct.pubkey.as_slice());
+				let res = blind_rsa_signatures::PublicKey::from_der(candidate_struct.pubkey.as_slice());
+				if let Ok(key) = res {
+					rsa_public = key;
+				} else {
+					return Err(Error::<T>::InvalidPublicKey.into());
+				}
+			} else {
+				return Err(Error::<T>::RSAStorageNotFound.into());
+			}
+
+			// Format the signature correctly
+			let signature = blind_rsa_signatures::Signature::new(blinded_signature.to_vec());
+
+			// Set the verification options
+			let options = blind_rsa_signatures::Options::default();
+			
+			// Verify the signatures match the candidates public key
+			let verification = rsa_public.verify(&signature, None, voter_data.blinded_pubkey, &options);
+				
+			// If Verification fails we need to kill the transaction
+			if verification.is_err() {
+				return Err(Error::<T>::RSAInvalidSignature.into());
+			}
+		
 			// Write to BlindedSignature
-			<BlindedSignatures<T>>::insert(voter, candidate, blinded_signature);
+				<BlindedSignatures<T>>::insert(voter, candidate, blinded_signature);
 
 			Ok(())
 		}
@@ -352,12 +407,18 @@ pub mod pallet {
 		pub fn vote(
 			origin: OriginFor<T>,
 			commitment: Vec<u8>,
-			signature: Vec<u8>,
+			signature: Vec<BlindSignature>,
 		) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
 
 			// Votes can only be cast during the voting phase
 			ensure!(Self::get_phase() == Some(ElectionPhase::Voting), <Error<T>>::InvalidPhase);
+
+			// Verify that the ballot is valid by checking for all candidates signatures
+			let candidate_iterator = Candidates::<T>::iter_values();
+			for candidate in candidate_iterator {
+
+			}
 
 			// If the ballot already exists, update the vote
 			if let Some(ballot) = <Ballots<T>>::get(sender.clone()) {

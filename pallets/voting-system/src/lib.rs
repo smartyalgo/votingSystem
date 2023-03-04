@@ -90,9 +90,10 @@ pub mod pallet {
 	}
 	
 	#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, TypeInfo)]
-	pub struct BlindSignature {
+	pub struct BlindSignature<T> {
 		// Candidate Lookup key
 		// TODO: How do we store an account ID here, whats the type?
+		pub acconut: T::AccountId,
 		pub signature: Vec<u8>,
 		pub msg_randomizer: Vec<u8>,
 	}
@@ -407,7 +408,7 @@ pub mod pallet {
 		pub fn vote(
 			origin: OriginFor<T>,
 			commitment: Vec<u8>,
-			signature: Vec<BlindSignature>,
+			signature: Vec<BlindSignature<T>>,
 		) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
 

@@ -3,6 +3,7 @@ members = [
     "node",
     "pallets/voting-system",
     "runtime",
+    "client"
 ]
 [profile.release]
 panic = "unwind"

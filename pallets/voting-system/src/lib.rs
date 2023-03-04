@@ -101,6 +101,15 @@ pub mod pallet {
 		}
 	}
 
+	#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, TypeInfo)]
+	pub struct BlindSignature<T> {
+		// Candidate Lookup key
+		// TODO: How do we store an account ID here, whats the type?
+		pub acconut: T::AccountId,
+		pub signature: Vec<u8>,
+		pub msg_randomizer: Vec<u8>,
+	}
+
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;

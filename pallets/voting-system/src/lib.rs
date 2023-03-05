@@ -12,8 +12,9 @@ mod benchmarking;
 
 #[frame_support::pallet]
 pub mod pallet {
-	use frame_support::{inherent::Vec, pallet_prelude::*};
-	use frame_system::pallet_prelude::*;
+
+use frame_support::{inherent::Vec, pallet_prelude::*};
+	use frame_system::{pallet_prelude::*};
 	use scale_info::prelude::string::String;
 
 	#[pallet::pallet]
@@ -95,7 +96,7 @@ pub mod pallet {
 		// TODO: How do we store an account ID here, whats the type?
 		// pub acconut: T::AccountId,
 		pub signature: Vec<u8>,
-		pub msg_randomizer: Vec<u8>,
+		pub msg_randomizer: [u8; 32],
 	}
 
 	#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, TypeInfo)]
@@ -188,8 +189,12 @@ pub mod pallet {
 		InvalidPhase,
 		/// Bad Sender
 		BadSender,
+		/// Missing count of candidates
+		MissingCandidateCount,
 		/// Ballot already exists
 		BallotAlreadyExists,
+		/// Duplicate or missing blind signatures
+		InvalidBlindSignatures,
 		/// Ballot does not exist
 		BallotNotFound,
 		/// RSA Key Storage not found
@@ -442,16 +447,77 @@ pub mod pallet {
 		pub fn vote(
 			origin: OriginFor<T>,
 			commitment: Vec<u8>,
-			signature: Vec<(T::AccountId, BlindSignature)>,
+			mut signature_set: Vec<(T::AccountId, BlindSignature)>,
 		) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
+
+			// Fetch the voters public key from their AccountID
+			let voter_public_key: Vec<u8> = sender.encode();
 
 			// Votes can only be cast during the voting phase
 			ensure!(Self::get_phase() == Some(ElectionPhase::Voting), <Error<T>>::InvalidPhase);
 
+			// Get the total count of candidates
+			let candidate_count: u64;
+			if let Some(count) = CandidatesCount::<T>::get()  {
+				candidate_count = count;
+			} else {
+				return Err(Error::<T>::MissingCandidateCount.into());
+			}
+
+			// Check if the number of signatures does not match the number of expected candidates signatures
+			if candidate_count as usize != signature_set.len() {
+				return Err(Error::<T>::InvalidBlindSignatures.into());
+			}
+
+			// Sort the list of signatures so we can later verify that no two signatures match to 
+			// prevent a user submitting multiple of the same signature while only using O(N) time
+			signature_set.sort_by(|a,b| b.0.cmp(&a.0));
+
 			// Verify that the ballot is valid by checking for all candidates signatures
-			let candidate_iterator = Candidates::<T>::iter_values();
-			for candidate in candidate_iterator {
+			let mut last_id: Option<T::AccountId> = None; 
+			for signature in signature_set {
+				let candidate_id = signature.0;
+				let blind_signature = signature.1;
+				// If the last candidate id is equal to or greater then the last there are duplicate entries
+				if let Some(id) = last_id {
+					if  id >= candidate_id {
+						return Err(Error::<T>::InvalidBlindSignatures.into());
+					}
+				}
+				// Update the last id for the next loops check
+				last_id = Some(candidate_id.clone());
+
+				// Verify the actual signatures to make sure they came from a candidate
+				// Start by trying to fetch the candidates public key
+				let rsa_public : blind_rsa_signatures::PublicKey;
+				if let Some(candidate_struct) = Self::get_candidate(candidate_id.clone()) {
+					let res = blind_rsa_signatures::PublicKey::from_der(candidate_struct.pubkey.as_slice());
+					if let Ok(key) = res {
+						rsa_public = key;
+					} else {
+						return Err(Error::<T>::InvalidBlindSignatures.into());
+					}
+				} else {
+					return Err(Error::<T>::InvalidBlindSignatures.into());
+				}
+
+				// Format the signature correctly
+				let signature = blind_rsa_signatures::Signature::new(blind_signature.signature.to_vec());
+
+				// Set the verification options
+				let options = blind_rsa_signatures::Options::default();
+
+				// Decode the Message Randomizer Correctly
+				let msg_randomizer = Some(blind_rsa_signatures::MessageRandomizer::from(blind_signature.msg_randomizer));
+				
+				// Verify the signatures match the candidates public key
+				let verification = rsa_public.verify(&signature, msg_randomizer, voter_public_key.clone(), &options);
+					
+				// If Verification fails we need to kill the transaction
+				if verification.is_err() {
+					return Err(Error::<T>::InvalidBlindSignatures.into());
+				}
 				
 			}
 

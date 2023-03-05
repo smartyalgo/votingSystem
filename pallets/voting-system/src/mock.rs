@@ -49,9 +49,13 @@ impl system::Config for Test {
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
+frame_support::parameter_types! {
+	pub const SignatureLength: u32 = 32;
+}
+
 impl pallet_voting_system::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
-	type SignatureLength = ();
+	type SignatureLength = SignatureLength;
 }
 
 // Build genesis storage according to the mock runtime.
@@ -60,6 +64,21 @@ pub fn new_test_ext(root_key: u64) -> sp_io::TestExternalities {
 	pallet_voting_system::GenesisConfig::<Test> {
 		central_authority: Some(root_key),
 		candidates: vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+		ballot_public_key: vec![1, 2, 3],
+	}
+	.assimilate_storage(&mut t)
+	.unwrap();
+	t.into()
+}
+
+pub fn new_test_ext_w_candidate(
+	root_key: u64,
+	candidate: Vec<<Test as system::Config>::AccountId>,
+) -> sp_io::TestExternalities {
+	let mut t = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
+	pallet_voting_system::GenesisConfig::<Test> {
+		central_authority: Some(root_key),
+		candidates: candidate,
 		ballot_public_key: vec![1, 2, 3],
 	}
 	.assimilate_storage(&mut t)

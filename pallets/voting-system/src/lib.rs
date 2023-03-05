@@ -218,7 +218,7 @@ pub mod pallet {
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
 		pub central_authority: Option<T::AccountId>,
-		pub candidates: Vec<T::AccountId>,
+		pub candidates: Vec<(T::AccountId, Vec<u8>)>,
 		pub ballot_public_key: Vec<u8>,
 	}
 
@@ -251,8 +251,8 @@ pub mod pallet {
 			for candidate in &self.candidates {
 				// pubkey with place holder
 				Candidates::<T>::insert(
-					candidate,
-					Candidate { name: "".to_string(), pubkey: Vec::new() },
+					candidate.clone().0,
+					Candidate { name: "".to_string(), pubkey: candidate.clone().1 },
 				);
 			}
 			CandidatesCount::<T>::put(self.candidates.len() as u64);
@@ -289,7 +289,7 @@ pub mod pallet {
 				ensure!(sender == ca, <Error<T>>::SenderNotCA);
 			} else {
 				// if CA is not set, return error
-				return Err(Error::<T>::InternalError.into());
+				return Err(Error::<T>::InternalError.into())
 			}
 
 			// TODO: Pull this out into it's own function for testability
@@ -301,8 +301,9 @@ pub mod pallet {
 			let current_phase = Self::phase();
 			match current_phase {
 				Some(ElectionPhase::BiasedSigner) => {
-					// Check if all the voters has received all blinded signatures from all candidates
-					// For each voter, check if blinded signature array == candidate count
+					// Check if all the voters has received all blinded signatures from all
+					// candidates For each voter, check if blinded signature array == candidate
+					// count
 					let mut voter_index = 1;
 					while Some(voter_index) <= Self::voter_count() {
 						// Get BlindedSignature(voter_id, candidate)
@@ -313,7 +314,7 @@ pub mod pallet {
 							},
 						);
 						if Some(blinded_signature_count) != Self::candidates_count() {
-							return Err(Error::<T>::InvalidPhaseChange.into());
+							return Err(Error::<T>::InvalidPhaseChange.into())
 						}
 						voter_index += 1;
 					}
@@ -354,7 +355,7 @@ pub mod pallet {
 			} else {
 				// if CA is not set, return error
 				// TODO: Change to Incorrect Configuration
-				return Err(Error::<T>::InternalError.into());
+				return Err(Error::<T>::InternalError.into())
 			}
 
 			// Voters can only be added during the registration phase
@@ -425,10 +426,10 @@ pub mod pallet {
 				if let Ok(key) = res {
 					rsa_public = key;
 				} else {
-					return Err(Error::<T>::InvalidPublicKey.into());
+					return Err(Error::<T>::InvalidPublicKey.into())
 				}
 			} else {
-				return Err(Error::<T>::RSAStorageNotFound.into());
+				return Err(Error::<T>::RSAStorageNotFound.into())
 			}
 
 			// Format the signature correctly
@@ -443,7 +444,7 @@ pub mod pallet {
 
 			// If Verification fails we need to kill the transaction
 			if verification.is_err() {
-				return Err(Error::<T>::RSAInvalidSignature.into());
+				return Err(Error::<T>::RSAInvalidSignature.into())
 			}
 
 			// Write to BlindedSignature
@@ -472,12 +473,13 @@ pub mod pallet {
 			if let Some(count) = CandidatesCount::<T>::get() {
 				candidate_count = count;
 			} else {
-				return Err(Error::<T>::MissingCandidateCount.into());
+				return Err(Error::<T>::MissingCandidateCount.into())
 			}
 
-			// Check if the number of signatures does not match the number of expected candidates signatures
+			// Check if the number of signatures does not match the number of expected candidates
+			// signatures
 			if candidate_count as usize != signature_set.len() {
-				return Err(Error::<T>::InvalidBlindSignatures.into());
+				return Err(Error::<T>::InvalidBlindSignatures.into())
 			}
 
 			// Sort the list of signatures so we can later verify that no two signatures match to
@@ -489,10 +491,11 @@ pub mod pallet {
 			for signature in signature_set {
 				let candidate_id = signature.0;
 				let blind_signature = signature.1;
-				// If the last candidate id is equal to or greater then the last there are duplicate entries
+				// If the last candidate id is equal to or greater then the last there are duplicate
+				// entries
 				if let Some(id) = last_id {
 					if id >= candidate_id {
-						return Err(Error::<T>::InvalidBlindSignatures.into());
+						return Err(Error::<T>::InvalidBlindSignatures.into())
 					}
 				}
 				// Update the last id for the next loops check
@@ -508,10 +511,10 @@ pub mod pallet {
 					if let Ok(key) = res {
 						rsa_public = key;
 					} else {
-						return Err(Error::<T>::InvalidBlindSignatures.into());
+						return Err(Error::<T>::InvalidBlindSignatures.into())
 					}
 				} else {
-					return Err(Error::<T>::InvalidBlindSignatures.into());
+					return Err(Error::<T>::InvalidBlindSignatures.into())
 				}
 
 				// Format the signature correctly
@@ -536,7 +539,7 @@ pub mod pallet {
 
 				// If Verification fails we need to kill the transaction
 				if verification.is_err() {
-					return Err(Error::<T>::InvalidBlindSignatures.into());
+					return Err(Error::<T>::InvalidBlindSignatures.into())
 				}
 			}
 
@@ -569,7 +572,7 @@ pub mod pallet {
 				ensure!(sender == ca, <Error<T>>::SenderNotCA);
 			} else {
 				// if CA is not set, return error
-				return Err(Error::<T>::InternalError.into());
+				return Err(Error::<T>::InternalError.into())
 			}
 
 			// Ballot private key can only be revealed during the counting phase
@@ -581,7 +584,7 @@ pub mod pallet {
 				ballot_key.private = private_key;
 				<BallotKeys<T>>::set(Some(ballot_key));
 			} else {
-				return Err(Error::<T>::InternalError.into());
+				return Err(Error::<T>::InternalError.into())
 			}
 
 			// TODO: Open the ballot

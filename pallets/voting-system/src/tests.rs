@@ -549,5 +549,5 @@ fn change_phase_success_with_all_blinded_signature() {
 }
 
 fn get_default_blinded_pubkey() -> Vec<u8> {
-	return vec![1, 2, 3];
+	return vec![1, 2, 3]
 }

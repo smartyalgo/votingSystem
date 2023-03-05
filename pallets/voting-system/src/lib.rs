@@ -262,6 +262,10 @@ pub mod pallet {
 
 			// TODO: Pull this out into it's own function for testability
 			// Additional phase-specific logic check if current phase can be ended
+
+			// TODO: Change this logic, in biased_sign function, per candidate
+			// keeps track of how many endorsement they have made. Only
+			//  proceed if for all candidates the count == voter count
 			let current_phase = Self::phase();
 			match current_phase {
 				Some(ElectionPhase::BiasedSigner) => {

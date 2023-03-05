@@ -181,7 +181,8 @@ fn can_update_candidate() {
 #[test]
 fn can_vote() {
 	let root_key = 1;
-	new_test_ext(root_key).execute_with(|| {
+	let candidates: Vec<<Test as frame_system::Config>::AccountId> = vec![1, 2, 3];
+	new_test_ext_w_candidate(root_key, candidates.clone()).execute_with(|| {
 		// with
 		let voter = 5;
 		let ca = 1;
@@ -202,7 +203,22 @@ fn can_vote() {
 			personal_data_hash,
 			is_eligible,
 		));
+
+		// Registration => BiasedSigning
 		assert_ok!(VotingSystem::change_phase(RuntimeOrigin::signed(ca)));
+		for candidate in candidates.iter() {
+			let blinded_signature: BoundedVec<u8, SignatureLength> =
+				BoundedVec::try_from(vec![1, 2, 3]).unwrap();
+
+			assert_ok!(VotingSystem::biased_signing(
+				RuntimeOrigin::signed(*candidate),
+				*candidate,
+				1,
+				blinded_signature
+			));
+		}
+
+		// BiasedSigning => Voting
 		assert_ok!(VotingSystem::change_phase(RuntimeOrigin::signed(ca)));
 
 		// then vote
@@ -221,7 +237,8 @@ fn can_vote() {
 #[test]
 pub fn can_change_vote() {
 	let root_key = 1;
-	new_test_ext(root_key).execute_with(|| {
+	let candidates: Vec<<Test as frame_system::Config>::AccountId> = vec![1, 2, 3];
+	new_test_ext_w_candidate(root_key, candidates.clone()).execute_with(|| {
 		// with
 		let voter = 5;
 		let ca = 1;
@@ -242,7 +259,21 @@ pub fn can_change_vote() {
 			personal_data_hash,
 			is_eligible
 		));
+		// Registration => BiasedSigning
 		assert_ok!(VotingSystem::change_phase(RuntimeOrigin::signed(ca)));
+		for candidate in candidates.iter() {
+			let blinded_signature: BoundedVec<u8, SignatureLength> =
+				BoundedVec::try_from(vec![1, 2, 3]).unwrap();
+
+			assert_ok!(VotingSystem::biased_signing(
+				RuntimeOrigin::signed(*candidate),
+				*candidate,
+				1,
+				blinded_signature
+			));
+		}
+
+		// BiasedSigning => Voting
 		assert_ok!(VotingSystem::change_phase(RuntimeOrigin::signed(ca)));
 		assert_ok!(VotingSystem::vote(
 			RuntimeOrigin::signed(voter),

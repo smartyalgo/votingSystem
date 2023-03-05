@@ -324,9 +324,10 @@ fn can_reveal_ballot_key() {
 }
 
 #[test]
-fn change_phase_errors_when_not_all_blinded_signature_are_revealed() {
+fn change_phase_errors_when_no_blinded_signature() {
 	let root_key = 1;
-	new_test_ext(root_key).execute_with(|| {
+	let candidates: Vec<<Test as frame_system::Config>::AccountId> = vec![1, 2, 3];
+	new_test_ext_w_candidate(root_key, candidates).execute_with(|| {
 		let ca = root_key;
 		System::set_block_number(1);
 		// Initialization phase
@@ -350,6 +351,8 @@ fn change_phase_errors_when_not_all_blinded_signature_are_revealed() {
 			VotingSystem::voters(1),
 			Some(Voter { blinded_pubkey, signed_blinded_pubkey, is_eligible, personal_data_hash })
 		);
+
+		// Registration => BiasedSigning
 		assert_ok!(VotingSystem::change_phase(RuntimeOrigin::signed(ca)));
 
 		assert_noop!(
@@ -360,9 +363,10 @@ fn change_phase_errors_when_not_all_blinded_signature_are_revealed() {
 }
 
 #[test]
-fn change_phase_errors_when_not_all_blinded_signature_are_revealed_partial_candidates() {
+fn change_phase_errors_when_only_partial_blinded_signature() {
 	let root_key = 1;
-	new_test_ext(root_key).execute_with(|| {
+	let candidates: Vec<<Test as frame_system::Config>::AccountId> = vec![1, 2, 3];
+	new_test_ext_w_candidate(root_key, candidates).execute_with(|| {
 		let ca = root_key;
 		System::set_block_number(1);
 		// Initialization phase
@@ -386,9 +390,9 @@ fn change_phase_errors_when_not_all_blinded_signature_are_revealed_partial_candi
 			VotingSystem::voters(1),
 			Some(Voter { blinded_pubkey, signed_blinded_pubkey, is_eligible, personal_data_hash })
 		);
-		assert_ok!(VotingSystem::change_phase(RuntimeOrigin::signed(ca)));
 
-		// BiasedSigning phase
+		// Registration => BiasedSigning
+		assert_ok!(VotingSystem::change_phase(RuntimeOrigin::signed(ca)));
 
 		let blinded_signature: BoundedVec<u8, SignatureLength> =
 			BoundedVec::try_from(vec![1, 2, 3]).unwrap();
@@ -398,6 +402,118 @@ fn change_phase_errors_when_not_all_blinded_signature_are_revealed_partial_candi
 			VotingSystem::change_phase(RuntimeOrigin::signed(ca)),
 			Error::<Test>::InvalidPhaseChange
 		);
+	})
+}
+
+#[test]
+fn change_phase_errors_when_not_all_voter_receive_blinded_signature() {
+	let root_key = 1;
+	let candidates: Vec<<Test as frame_system::Config>::AccountId> = vec![1, 2, 3];
+	new_test_ext_w_candidate(root_key, candidates.clone()).execute_with(|| {
+		let ca = root_key;
+		let expected_voter_id = 1;
+		System::set_block_number(1);
+		// Initialization phase
+		assert_eq!(VotingSystem::phase(), Some(Initialization));
+		assert_eq!(VotingSystem::get_ca(), Some(1));
+		assert_ok!(VotingSystem::change_phase(RuntimeOrigin::signed(ca)));
+
+		let blinded_pubkey = get_default_blinded_pubkey();
+		let signed_blinded_pubkey = vec![4, 5, 6];
+		let is_eligible = true;
+		let personal_data_hash = vec![7, 8, 9];
+
+		assert_ok!(VotingSystem::add_voter(
+			RuntimeOrigin::signed(ca),
+			blinded_pubkey.clone(),
+			signed_blinded_pubkey.clone(),
+			personal_data_hash.clone(),
+			is_eligible
+		));
+		assert_ok!(VotingSystem::add_voter(
+			RuntimeOrigin::signed(ca),
+			blinded_pubkey.clone(),
+			signed_blinded_pubkey.clone(),
+			personal_data_hash.clone(),
+			is_eligible
+		));
+		assert_eq!(
+			VotingSystem::voters(1),
+			Some(Voter { blinded_pubkey, signed_blinded_pubkey, is_eligible, personal_data_hash })
+		);
+
+		// Registration => BiasedSigning
+		assert_ok!(VotingSystem::change_phase(RuntimeOrigin::signed(ca)));
+
+		// All candidates only signing for one voter
+		for candidate in candidates.iter() {
+			let blinded_signature: BoundedVec<u8, SignatureLength> =
+				BoundedVec::try_from(vec![1, 2, 3]).unwrap();
+
+			assert_ok!(VotingSystem::biased_signing(
+				RuntimeOrigin::signed(*candidate),
+				*candidate,
+				expected_voter_id,
+				blinded_signature
+			));
+		}
+
+		// BiasedSigning => Voting
+		assert_noop!(
+			VotingSystem::change_phase(RuntimeOrigin::signed(ca)),
+			Error::<Test>::InvalidPhaseChange
+		);
+		assert_eq!(VotingSystem::phase(), Some(BiasedSigner));
+	})
+}
+
+#[test]
+fn change_phase_success_with_all_blinded_signature() {
+	let root_key = 1;
+	let candidates: Vec<<Test as frame_system::Config>::AccountId> = vec![1, 2, 3];
+	new_test_ext_w_candidate(root_key, candidates.clone()).execute_with(|| {
+		let ca = root_key;
+		let expected_voter_id = 1;
+		System::set_block_number(1);
+		// Initialization phase
+		assert_eq!(VotingSystem::phase(), Some(Initialization));
+		assert_eq!(VotingSystem::get_ca(), Some(1));
+		assert_ok!(VotingSystem::change_phase(RuntimeOrigin::signed(ca)));
+
+		let blinded_pubkey = get_default_blinded_pubkey();
+		let signed_blinded_pubkey = vec![4, 5, 6];
+		let is_eligible = true;
+		let personal_data_hash = vec![7, 8, 9];
+
+		assert_ok!(VotingSystem::add_voter(
+			RuntimeOrigin::signed(ca),
+			blinded_pubkey.clone(),
+			signed_blinded_pubkey.clone(),
+			personal_data_hash.clone(),
+			is_eligible
+		));
+		assert_eq!(
+			VotingSystem::voters(1),
+			Some(Voter { blinded_pubkey, signed_blinded_pubkey, is_eligible, personal_data_hash })
+		);
+
+		// Registration => BiasedSigning
+		assert_ok!(VotingSystem::change_phase(RuntimeOrigin::signed(ca)));
+
+		for candidate in candidates.iter() {
+			let blinded_signature: BoundedVec<u8, SignatureLength> =
+				BoundedVec::try_from(vec![1, 2, 3]).unwrap();
+
+			assert_ok!(VotingSystem::biased_signing(
+				RuntimeOrigin::signed(*candidate),
+				*candidate,
+				expected_voter_id,
+				blinded_signature
+			));
+		}
+		// BiasedSigning => Voting
+		assert_ok!(VotingSystem::change_phase(RuntimeOrigin::signed(ca)));
+		assert_eq!(VotingSystem::phase(), Some(Voting));
 	})
 }
 

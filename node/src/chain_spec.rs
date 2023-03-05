@@ -39,6 +39,14 @@ pub fn authority_keys_from_seed(s: &str) -> (AuraId, GrandpaId) {
 pub fn development_config() -> Result<ChainSpec, String> {
 	let wasm_binary = WASM_BINARY.ok_or_else(|| "Development wasm not available".to_string())?;
 
+	let candidate1_account_id = get_account_id_from_seed::<sr25519::Public>("Candidate1");
+	let candidate2_account_id = get_account_id_from_seed::<sr25519::Public>("Candidate2");
+	let candidate3_account_id = get_account_id_from_seed::<sr25519::Public>("Candidate3");
+
+	let candidate1_public_key = vec![1, 2, 3];
+	let candidate2_public_key = vec![1, 2, 3];
+	let candidate3_public_key = vec![1, 2, 3];
+
 	Ok(ChainSpec::from_genesis(
 		// Name
 		"Development",
@@ -53,7 +61,11 @@ pub fn development_config() -> Result<ChainSpec, String> {
 				// Central authority
 				get_account_id_from_seed::<sr25519::Public>("Alice"),
 				// Candidates
-				vec![get_account_id_from_seed::<sr25519::Public>("Candidate1"), get_account_id_from_seed::<sr25519::Public>("Candidate2"), get_account_id_from_seed::<sr25519::Public>("Candidate3")],
+				vec![
+					(candidate1_account_id.clone(), candidate1_public_key.clone()),
+					(candidate2_account_id.clone(), candidate2_public_key.clone()),
+					(candidate3_account_id.clone(), candidate3_public_key.clone()),
+				],
 				// Ballot public key
 				get_account_id_from_seed::<sr25519::Public>("ballot").to_string().into_bytes(),
 				// sudo account
@@ -79,6 +91,14 @@ pub fn development_config() -> Result<ChainSpec, String> {
 pub fn local_testnet_config() -> Result<ChainSpec, String> {
 	let wasm_binary = WASM_BINARY.ok_or_else(|| "Development wasm not available".to_string())?;
 
+	let candidate1_account_id = get_account_id_from_seed::<sr25519::Public>("Candidate1");
+	let candidate2_account_id = get_account_id_from_seed::<sr25519::Public>("Candidate2");
+	let candidate3_account_id = get_account_id_from_seed::<sr25519::Public>("Candidate3");
+
+	let candidate1_public_key = vec![1, 2, 3];
+	let candidate2_public_key = vec![1, 2, 3];
+	let candidate3_public_key = vec![1, 2, 3];
+
 	Ok(ChainSpec::from_genesis(
 		// Name
 		"Local Testnet",
@@ -93,7 +113,11 @@ pub fn local_testnet_config() -> Result<ChainSpec, String> {
 				// Central authority
 				get_account_id_from_seed::<sr25519::Public>("Alice"),
 				// Candidates
-				vec![get_account_id_from_seed::<sr25519::Public>("Candidate1"), get_account_id_from_seed::<sr25519::Public>("Candidate2"), get_account_id_from_seed::<sr25519::Public>("Candidate3")],
+				vec![
+					(candidate1_account_id.clone(), candidate1_public_key.clone()),
+					(candidate2_account_id.clone(), candidate2_public_key.clone()),
+					(candidate3_account_id.clone(), candidate3_public_key.clone()),
+				],
 				// Ballot public key
 				get_account_id_from_seed::<sr25519::Public>("ballot").to_string().into_bytes(),
 				// Sudo account
@@ -120,7 +144,7 @@ fn testnet_genesis(
 	wasm_binary: &[u8],
 	initial_authorities: Vec<(AuraId, GrandpaId)>,
 	central_authority: AccountId,
-	candidates: Vec<AccountId>,
+	candidates: Vec<(AccountId, Vec<u8>)>,
 	ballot_public_key: Vec<u8>,
 	root_key: AccountId,
 	_enable_println: bool,

@@ -13,8 +13,8 @@ mod benchmarking;
 #[frame_support::pallet]
 pub mod pallet {
 
-use frame_support::{inherent::Vec, pallet_prelude::*};
-	use frame_system::{pallet_prelude::*};
+	use frame_support::{inherent::Vec, pallet_prelude::*};
+	use frame_system::pallet_prelude::*;
 	use scale_info::prelude::string::String;
 
 	#[pallet::pallet]
@@ -79,7 +79,7 @@ use frame_support::{inherent::Vec, pallet_prelude::*};
 
 	#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, TypeInfo)]
 	pub struct Ballot {
-		pub commitment: Vec<u8>,
+		pub commitment: u32,
 		pub signature: Vec<u8>, // TODO: There needs to be one for each candidate
 		pub nonce: u64,
 	}
@@ -89,7 +89,7 @@ use frame_support::{inherent::Vec, pallet_prelude::*};
 			usize::MAX - 1
 		}
 	}
-	
+
 	#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, TypeInfo)]
 	pub struct BlindSignature {
 		// Candidate Lookup key
@@ -166,6 +166,14 @@ use frame_support::{inherent::Vec, pallet_prelude::*};
 	#[pallet::getter(fn ballots)]
 	pub type Ballots<T: Config> = StorageMap<_, Twox64Concat, T::AccountId, Ballot, OptionQuery>;
 
+	#[pallet::storage]
+	#[pallet::getter(fn candidate_vote_count)]
+	pub type CandidateVoteCount<T: Config> = StorageMap<_, Twox64Concat, u32, u32, OptionQuery>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn winner)]
+	pub type VoterWinner<T: Config> = StorageValue<_, u32, OptionQuery>;
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
@@ -204,13 +212,13 @@ use frame_support::{inherent::Vec, pallet_prelude::*};
 		/// Bad Signature from RSA Key
 		RSAInvalidSignature,
 		/// Invalid public key
-		InvalidPublicKey
+		InvalidPublicKey,
 	}
 
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
 		pub central_authority: Option<T::AccountId>,
-		pub candidates: Vec<T::AccountId>,
+		pub candidates: Vec<(T::AccountId, Vec<u8>)>,
 		pub ballot_public_key: Vec<u8>,
 	}
 
@@ -243,8 +251,8 @@ use frame_support::{inherent::Vec, pallet_prelude::*};
 			for candidate in &self.candidates {
 				// pubkey with place holder
 				Candidates::<T>::insert(
-					candidate,
-					Candidate { name: "".to_string(), pubkey: Vec::new() },
+					candidate.clone().0,
+					Candidate { name: "".to_string(), pubkey: candidate.clone().1 },
 				);
 			}
 			CandidatesCount::<T>::put(self.candidates.len() as u64);
@@ -281,7 +289,7 @@ use frame_support::{inherent::Vec, pallet_prelude::*};
 				ensure!(sender == ca, <Error<T>>::SenderNotCA);
 			} else {
 				// if CA is not set, return error
-				return Err(Error::<T>::InternalError.into());
+				return Err(Error::<T>::InternalError.into())
 			}
 
 			// TODO: Pull this out into it's own function for testability
@@ -293,8 +301,9 @@ use frame_support::{inherent::Vec, pallet_prelude::*};
 			let current_phase = Self::phase();
 			match current_phase {
 				Some(ElectionPhase::BiasedSigner) => {
-					// Check if all the voters has received all blinded signatures from all candidates
-					// For each voter, check if blinded signature array == candidate count
+					// Check if all the voters has received all blinded signatures from all
+					// candidates For each voter, check if blinded signature array == candidate
+					// count
 					let mut voter_index = 1;
 					while Some(voter_index) <= Self::voter_count() {
 						// Get BlindedSignature(voter_id, candidate)
@@ -305,7 +314,7 @@ use frame_support::{inherent::Vec, pallet_prelude::*};
 							},
 						);
 						if Some(blinded_signature_count) != Self::candidates_count() {
-							return Err(Error::<T>::InvalidPhaseChange.into());
+							return Err(Error::<T>::InvalidPhaseChange.into())
 						}
 						voter_index += 1;
 					}
@@ -346,7 +355,7 @@ use frame_support::{inherent::Vec, pallet_prelude::*};
 			} else {
 				// if CA is not set, return error
 				// TODO: Change to Incorrect Configuration
-				return Err(Error::<T>::InternalError.into());
+				return Err(Error::<T>::InternalError.into())
 			}
 
 			// Voters can only be added during the registration phase
@@ -401,7 +410,7 @@ use frame_support::{inherent::Vec, pallet_prelude::*};
 
 			// Fetch the voters blinded key to verify the signature
 			let voter_data;
-			
+
 			match Self::get_voter(voter) {
 				Some(data) => voter_data = data,
 				None => return Err(Error::<T>::VoterDoesNotExist.into()),
@@ -409,17 +418,18 @@ use frame_support::{inherent::Vec, pallet_prelude::*};
 
 			// Fetch the candidates public key
 			// let rsa_public: blind_rsa_signatures::reexports::rsa::RsaPublicKey;
-			let rsa_public : blind_rsa_signatures::PublicKey;
+			let rsa_public: blind_rsa_signatures::PublicKey;
 			if let Some(candidate_struct) = Self::get_candidate(candidate.clone()) {
 				// let res = blind_rsa_signatures::reexports::rsa::RsaPublicKey::from_public_key_der(candidate_struct.pubkey.as_slice());
-				let res = blind_rsa_signatures::PublicKey::from_der(candidate_struct.pubkey.as_slice());
+				let res =
+					blind_rsa_signatures::PublicKey::from_der(candidate_struct.pubkey.as_slice());
 				if let Ok(key) = res {
 					rsa_public = key;
 				} else {
-					return Err(Error::<T>::InvalidPublicKey.into());
+					return Err(Error::<T>::InvalidPublicKey.into())
 				}
 			} else {
-				return Err(Error::<T>::RSAStorageNotFound.into());
+				return Err(Error::<T>::RSAStorageNotFound.into())
 			}
 
 			// Format the signature correctly
@@ -427,17 +437,18 @@ use frame_support::{inherent::Vec, pallet_prelude::*};
 
 			// Set the verification options
 			let options = blind_rsa_signatures::Options::default();
-			
+
 			// Verify the signatures match the candidates public key
-			let verification = rsa_public.verify(&signature, None, voter_data.blinded_pubkey, &options);
-				
+			let verification =
+				rsa_public.verify(&signature, None, voter_data.blinded_pubkey, &options);
+
 			// If Verification fails we need to kill the transaction
 			if verification.is_err() {
-				return Err(Error::<T>::RSAInvalidSignature.into());
+				return Err(Error::<T>::RSAInvalidSignature.into())
 			}
-		
+
 			// Write to BlindedSignature
-				<BlindedSignatures<T>>::insert(voter, candidate, blinded_signature);
+			<BlindedSignatures<T>>::insert(voter, candidate, blinded_signature);
 
 			Ok(())
 		}
@@ -446,7 +457,7 @@ use frame_support::{inherent::Vec, pallet_prelude::*};
 		#[pallet::call_index(4)]
 		pub fn vote(
 			origin: OriginFor<T>,
-			commitment: Vec<u8>,
+			commitment: u32,
 			mut signature_set: Vec<(T::AccountId, BlindSignature)>,
 		) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
@@ -459,30 +470,32 @@ use frame_support::{inherent::Vec, pallet_prelude::*};
 
 			// Get the total count of candidates
 			let candidate_count: u64;
-			if let Some(count) = CandidatesCount::<T>::get()  {
+			if let Some(count) = CandidatesCount::<T>::get() {
 				candidate_count = count;
 			} else {
-				return Err(Error::<T>::MissingCandidateCount.into());
+				return Err(Error::<T>::MissingCandidateCount.into())
 			}
 
-			// Check if the number of signatures does not match the number of expected candidates signatures
+			// Check if the number of signatures does not match the number of expected candidates
+			// signatures
 			if candidate_count as usize != signature_set.len() {
-				return Err(Error::<T>::InvalidBlindSignatures.into());
+				return Err(Error::<T>::InvalidBlindSignatures.into())
 			}
 
-			// Sort the list of signatures so we can later verify that no two signatures match to 
+			// Sort the list of signatures so we can later verify that no two signatures match to
 			// prevent a user submitting multiple of the same signature while only using O(N) time
-			signature_set.sort_by(|a,b| b.0.cmp(&a.0));
+			signature_set.sort_by(|a, b| b.0.cmp(&a.0));
 
 			// Verify that the ballot is valid by checking for all candidates signatures
-			let mut last_id: Option<T::AccountId> = None; 
+			let mut last_id: Option<T::AccountId> = None;
 			for signature in signature_set {
 				let candidate_id = signature.0;
 				let blind_signature = signature.1;
-				// If the last candidate id is equal to or greater then the last there are duplicate entries
+				// If the last candidate id is equal to or greater then the last there are duplicate
+				// entries
 				if let Some(id) = last_id {
-					if  id >= candidate_id {
-						return Err(Error::<T>::InvalidBlindSignatures.into());
+					if id >= candidate_id {
+						return Err(Error::<T>::InvalidBlindSignatures.into())
 					}
 				}
 				// Update the last id for the next loops check
@@ -490,35 +503,44 @@ use frame_support::{inherent::Vec, pallet_prelude::*};
 
 				// Verify the actual signatures to make sure they came from a candidate
 				// Start by trying to fetch the candidates public key
-				let rsa_public : blind_rsa_signatures::PublicKey;
+				let rsa_public: blind_rsa_signatures::PublicKey;
 				if let Some(candidate_struct) = Self::get_candidate(candidate_id.clone()) {
-					let res = blind_rsa_signatures::PublicKey::from_der(candidate_struct.pubkey.as_slice());
+					let res = blind_rsa_signatures::PublicKey::from_der(
+						candidate_struct.pubkey.as_slice(),
+					);
 					if let Ok(key) = res {
 						rsa_public = key;
 					} else {
-						return Err(Error::<T>::InvalidBlindSignatures.into());
+						return Err(Error::<T>::InvalidBlindSignatures.into())
 					}
 				} else {
-					return Err(Error::<T>::InvalidBlindSignatures.into());
+					return Err(Error::<T>::InvalidBlindSignatures.into())
 				}
 
 				// Format the signature correctly
-				let signature = blind_rsa_signatures::Signature::new(blind_signature.signature.to_vec());
+				let signature =
+					blind_rsa_signatures::Signature::new(blind_signature.signature.to_vec());
 
 				// Set the verification options
 				let options = blind_rsa_signatures::Options::default();
 
 				// Decode the Message Randomizer Correctly
-				let msg_randomizer = Some(blind_rsa_signatures::MessageRandomizer::from(blind_signature.msg_randomizer));
-				
+				let msg_randomizer = Some(blind_rsa_signatures::MessageRandomizer::from(
+					blind_signature.msg_randomizer,
+				));
+
 				// Verify the signatures match the candidates public key
-				let verification = rsa_public.verify(&signature, msg_randomizer, voter_public_key.clone(), &options);
-					
+				let verification = rsa_public.verify(
+					&signature,
+					msg_randomizer,
+					voter_public_key.clone(),
+					&options,
+				);
+
 				// If Verification fails we need to kill the transaction
 				if verification.is_err() {
-					return Err(Error::<T>::InvalidBlindSignatures.into());
+					return Err(Error::<T>::InvalidBlindSignatures.into())
 				}
-				
 			}
 
 			// If the ballot already exists, update the vote
@@ -526,11 +548,14 @@ use frame_support::{inherent::Vec, pallet_prelude::*};
 				// Update the ballot
 				<Ballots<T>>::insert(
 					sender,
-					Ballot { commitment, signature:Vec::new(), nonce: ballot.nonce + 1 },
+					Ballot { commitment, signature: Vec::new(), nonce: ballot.nonce + 1 },
 				);
 			} else {
 				// Add the ballot
-				<Ballots<T>>::insert(sender, Ballot { commitment, signature: Vec::new(), nonce: 1 });
+				<Ballots<T>>::insert(
+					sender,
+					Ballot { commitment, signature: Vec::new(), nonce: 1 },
+				);
 			}
 
 			Ok(())
@@ -547,7 +572,7 @@ use frame_support::{inherent::Vec, pallet_prelude::*};
 				ensure!(sender == ca, <Error<T>>::SenderNotCA);
 			} else {
 				// if CA is not set, return error
-				return Err(Error::<T>::InternalError.into());
+				return Err(Error::<T>::InternalError.into())
 			}
 
 			// Ballot private key can only be revealed during the counting phase
@@ -559,10 +584,27 @@ use frame_support::{inherent::Vec, pallet_prelude::*};
 				ballot_key.private = private_key;
 				<BallotKeys<T>>::set(Some(ballot_key));
 			} else {
-				return Err(Error::<T>::InternalError.into());
+				return Err(Error::<T>::InternalError.into())
 			}
 
 			// TODO: Open the ballot
+			Ballots::<T>::iter_values()
+				.map(|ballot| ballot.commitment)
+				.for_each(|commitment| {
+					let current_count = Self::candidate_vote_count(commitment).unwrap_or(0);
+					CandidateVoteCount::<T>::insert(commitment, current_count + 1);
+				});
+
+			let mut max_count = 0;
+			let mut winner: u32 = 0;
+			CandidateVoteCount::<T>::iter().for_each(|(commitment, count)| {
+				if count > max_count {
+					max_count = count;
+					winner = commitment;
+				}
+			});
+
+			VoterWinner::<T>::set(Some(winner));
 
 			Ok(())
 		}
@@ -591,6 +633,14 @@ use frame_support::{inherent::Vec, pallet_prelude::*};
 
 		pub fn get_ballot_key() -> Option<BallotKey> {
 			BallotKeys::<T>::get()
+		}
+
+		pub fn get_victor_count(candidate: u32) -> Option<u32> {
+			CandidateVoteCount::<T>::get(candidate)
+		}
+
+		pub fn get_winner() -> Option<u32> {
+			<VoterWinner<T>>::get()
 		}
 	}
 }

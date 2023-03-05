@@ -50,7 +50,13 @@ pub fn development_config() -> Result<ChainSpec, String> {
 				wasm_binary,
 				// Initial PoA authorities
 				vec![authority_keys_from_seed("Alice")],
-				// Sudo account
+				// Central authority
+				get_account_id_from_seed::<sr25519::Public>("Alice"),
+				// Candidates
+				vec![get_account_id_from_seed::<sr25519::Public>("Candidate1"), get_account_id_from_seed::<sr25519::Public>("Candidate2"), get_account_id_from_seed::<sr25519::Public>("Candidate3")],
+				// Ballot public key
+				get_account_id_from_seed::<sr25519::Public>("ballot").to_string().into_bytes(),
+				// sudo account
 				get_account_id_from_seed::<sr25519::Public>("Alice"),
 				// Pre-funded accounts
 				true,
@@ -84,6 +90,12 @@ pub fn local_testnet_config() -> Result<ChainSpec, String> {
 				wasm_binary,
 				// Initial PoA authorities
 				vec![authority_keys_from_seed("Alice"), authority_keys_from_seed("Bob")],
+				// Central authority
+				get_account_id_from_seed::<sr25519::Public>("Alice"),
+				// Candidates
+				vec![get_account_id_from_seed::<sr25519::Public>("Candidate1"), get_account_id_from_seed::<sr25519::Public>("Candidate2"), get_account_id_from_seed::<sr25519::Public>("Candidate3")],
+				// Ballot public key
+				get_account_id_from_seed::<sr25519::Public>("ballot").to_string().into_bytes(),
 				// Sudo account
 				get_account_id_from_seed::<sr25519::Public>("Alice"),
 				true,
@@ -107,6 +119,9 @@ pub fn local_testnet_config() -> Result<ChainSpec, String> {
 fn testnet_genesis(
 	wasm_binary: &[u8],
 	initial_authorities: Vec<(AuraId, GrandpaId)>,
+	central_authority: AccountId,
+	candidates: Vec<AccountId>,
+	ballot_public_key: Vec<u8>,
 	root_key: AccountId,
 	_enable_println: bool,
 ) -> GenesisConfig {
@@ -126,9 +141,9 @@ fn testnet_genesis(
 			key: Some(root_key.clone()),
 		},
 		voting_system: VotingSystemConfig {
-			central_authority: Some(root_key),
-			candidates: Vec::new(),
-			ballot_public_key: Vec::new(),
+			central_authority: Some(central_authority),
+			candidates,
+			ballot_public_key,
 		},
 	}
 }

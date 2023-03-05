@@ -138,6 +138,10 @@ pub mod pallet {
 		StorageMap<_, Twox64Concat, T::AccountId, Candidate, OptionQuery>;
 
 	#[pallet::storage]
+	#[pallet::getter(fn candidates_count)]
+	pub type CandidatesCount<T: Config> = StorageValue<_, u64, OptionQuery>;
+
+	#[pallet::storage]
 	#[pallet::getter(fn voters)]
 	pub type Voters<T: Config> = StorageMap<_, Twox64Concat, u64, Voter, OptionQuery>;
 
@@ -238,6 +242,7 @@ pub mod pallet {
 					Candidate { name: "".to_string(), pubkey: Vec::new() },
 				);
 			}
+			CandidatesCount::<T>::put(self.candidates.len() as u64);
 		}
 	}
 
@@ -271,7 +276,36 @@ pub mod pallet {
 				ensure!(sender == ca, <Error<T>>::SenderNotCA);
 			} else {
 				// if CA is not set, return error
-				return Err(Error::<T>::InternalError.into())
+				return Err(Error::<T>::InternalError.into());
+			}
+
+			// TODO: Pull this out into it's own function for testability
+			// Additional phase-specific logic check if current phase can be ended
+
+			// TODO: Change this logic, in biased_sign function, per candidate
+			// keeps track of how many endorsement they have made. Only
+			//  proceed if for all candidates the count == voter count
+			let current_phase = Self::phase();
+			match current_phase {
+				Some(ElectionPhase::BiasedSigner) => {
+					// Check if all the voters has received all blinded signatures from all candidates
+					// For each voter, check if blinded signature array == candidate count
+					let mut voter_index = 1;
+					while Some(voter_index) <= Self::voter_count() {
+						// Get BlindedSignature(voter_id, candidate)
+						let mut blinded_signature_count: u64 = 0;
+						BlindedSignatures::<T>::iter_prefix(voter_index).for_each(
+							|(_candidate, _)| {
+								blinded_signature_count += 1;
+							},
+						);
+						if Some(blinded_signature_count) != Self::candidates_count() {
+							return Err(Error::<T>::InvalidPhaseChange.into());
+						}
+						voter_index += 1;
+					}
+				},
+				_ => {},
 			}
 
 			// Update the phase
@@ -307,7 +341,7 @@ pub mod pallet {
 			} else {
 				// if CA is not set, return error
 				// TODO: Change to Incorrect Configuration
-				return Err(Error::<T>::InternalError.into())
+				return Err(Error::<T>::InternalError.into());
 			}
 
 			// Voters can only be added during the registration phase
@@ -418,13 +452,16 @@ pub mod pallet {
 			// Verify that the ballot is valid by checking for all candidates signatures
 			let candidate_iterator = Candidates::<T>::iter_values();
 			for candidate in candidate_iterator {
-
+				
 			}
 
 			// If the ballot already exists, update the vote
 			if let Some(ballot) = <Ballots<T>>::get(sender.clone()) {
 				// Update the ballot
-				<Ballots<T>>::insert(sender, Ballot { commitment, signature: Vec::new(), nonce: ballot.nonce + 1 });
+				<Ballots<T>>::insert(
+					sender,
+					Ballot { commitment, signature:Vec::new(), nonce: ballot.nonce + 1 },
+				);
 			} else {
 				// Add the ballot
 				<Ballots<T>>::insert(sender, Ballot { commitment, signature: Vec::new(), nonce: 1 });
@@ -444,7 +481,7 @@ pub mod pallet {
 				ensure!(sender == ca, <Error<T>>::SenderNotCA);
 			} else {
 				// if CA is not set, return error
-				return Err(Error::<T>::InternalError.into())
+				return Err(Error::<T>::InternalError.into());
 			}
 
 			// Ballot private key can only be revealed during the counting phase
@@ -456,7 +493,7 @@ pub mod pallet {
 				ballot_key.private = private_key;
 				<BallotKeys<T>>::set(Some(ballot_key));
 			} else {
-				return Err(Error::<T>::InternalError.into())
+				return Err(Error::<T>::InternalError.into());
 			}
 
 			// TODO: Open the ballot
